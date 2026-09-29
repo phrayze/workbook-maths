@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Online Test &mdash; NSW Maths Workbook</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      options: { renderActions: { assistiveMml: [] } }
+    };
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Online Test</h1>
+    <p class="subtitle">{{ student }} &mdash; Stage {{ stage }} &mdash; multiple choice, auto-marked</p>
+    <p class="note">{{ total_mcq }} of {{ total_generated }} selected questions could be presented as multiple choice (diagram-based and some extension questions are skipped here &mdash; they're still in the PDF workbook).</p>
+    <nav><a href="{{ url_for('index') }}">Back to picker</a> | <a href="{{ url_for('history') }}">View past results</a></nav>
+  </header>
+
+  {% if not mcqs %}
+  <div class="banner banner-error">No practice areas selected produced multiple-choice-ready questions. Try enabling topics like Fractions, Algebra, Sequences or Column facts other than column arithmetic.</div>
+  {% else %}
+  <form id="quiz-form">
+    {% for mcq in mcqs %}
+    <div class="quiz-question" data-topic="{{ mcq.topic }}" data-correct="{{ mcq.correct_index }}">
+      <p class="q-text">Q{{ loop.index }}. {{ mcq.prompt_tex }}</p>
+      <div class="q-options">
+        {% for opt in mcq.options %}
+        <label>
+          <input type="radio" name="q_{{ mcq.id }}" value="{{ loop.index0 }}">
+          {{ opt }}
+        </label>
+        {% endfor %}
+      </div>
+      <p class="q-solution" hidden>{{ mcq.solution_tex }}</p>
+    </div>
+    {% endfor %}
+
+    <div class="actions">
+      <button type="button" id="finish-quiz">Finish Test</button>
+      <span class="note">You can click this at any time &mdash; unanswered questions are recorded as "not attempted" and won't count against your score.</span>
+    </div>
+  </form>
+
+  <div id="quiz-results" hidden>
+    <h2>Results</h2>
+    <p id="overall-score"></p>
+    <ul id="topic-breakdown"></ul>
+    <p id="save-status"></p>
+  </div>
+  {% endif %}
+
+  <script>
+    window.QUIZ_STUDENT = {{ student|tojson }};
+    window.QUIZ_STAGE = {{ stage|tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

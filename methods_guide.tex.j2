@@ -1,0 +1,503 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{xlop}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+\usepackage{booktabs}
+\usepackage{multicol}
+\tcbuselibrary{skins,breakable}
+
+\newtcolorbox{stepsbox}{colback=blue!4!white,colframe=blue!40!black,title=Steps,fonttitle=\bfseries,breakable,left=6pt,right=6pt}
+\newtcolorbox{examplebox}[1]{colback=gray!5!white,colframe=gray!55!black,title={Worked Example --- #1},fonttitle=\bfseries,breakable,left=6pt,right=6pt}
+\newtcolorbox{mistakebox}{colback=red!4!white,colframe=red!50!black,title=Common Mistake,fonttitle=\bfseries,breakable,left=6pt,right=6pt}
+
+\setlength{\headheight}{22pt}
+\pagestyle{fancy}
+\fancyhead[L]{NSW Primary Mathematics --- Methods \& Reference Guide}
+\fancyhead[R]{\thepage}
+\fancyfoot[C]{}
+
+\BLOCK{ macro outcomes(topic) }
+{\footnotesize \BLOCK{ for o in topic_outcomes.get(topic, []) }\texttt{\VAR{o.key}} (\VAR{o.difficulty})\BLOCK{ if not loop.last }, \BLOCK{ endif }\BLOCK{ endfor }}
+\BLOCK{ endmacro }
+
+\begin{document}
+
+% ==============================================================================
+% TITLE PAGE
+% ==============================================================================
+\begin{center}
+\vspace*{2cm}
+{\Huge \bfseries NSW Primary Mathematics}\\[0.5em]
+{\LARGE Methods \& Reference Guide}\\[1.5em]
+{\large How to tackle every practice area in the NESA 2022 Mathematics K--10 syllabus (Stages 1--3),}\\
+{\large plus times and division tables for 1--12.}\\[2em]
+{\normalsize This is a companion to the practice workbook --- it explains \emph{how} to do each}\\
+{\normalsize question type step by step, rather than generating new practice questions.}
+\vspace{3cm}
+\end{center}
+\newpage
+
+\tableofcontents
+\newpage
+
+% ==============================================================================
+% PART 0: TIMES & DIVISION TABLES
+% ==============================================================================
+\section*{Times \& Division Tables (1--12)}
+\addcontentsline{toc}{section}{Times \& Division Tables (1--12)}
+
+The grid below gives every multiplication fact from $1\times1$ to $12\times12$. Row $\times$ column = the cell. It is also every division fact: find the answer to a division inside the grid, then its row is one factor and its column is the other.
+
+\begin{center}
+\footnotesize
+\begin{tabular}{c|*{\VAR{n}}{c}}
+\textbf{$\times$} \BLOCK{ for j in range(1, n+1) }& \textbf{\VAR{j}} \BLOCK{ endfor } \\
+\hline
+\BLOCK{ for i in range(1, n+1) }
+\textbf{\VAR{i}} \BLOCK{ for j in range(1, n+1) }& \VAR{grid[i-1][j-1]} \BLOCK{ endfor } \\
+\BLOCK{ endfor }
+\end{tabular}
+\end{center}
+
+\begin{examplebox}{Reading the grid as a division fact}
+Find $72 \div 8$. Look for 72 inside the grid: it's in row 8, column 9. So $72 \div 8 = 9$ (and, reading the other way, $72 \div 9 = 8$). Every multiplication fact gives you two division facts for free.
+\end{examplebox}
+
+\subsection*{Times Tables, Listed}
+
+\begin{multicols}{2}
+\BLOCK{ for i in range(1, n+1) }
+\textbf{\VAR{i} times table:} \VAR{i}, \BLOCK{ for j in range(2, n+1) }\VAR{grid[i-1][j-1]}\BLOCK{ if not loop.last }, \BLOCK{ endif }\BLOCK{ endfor }\\[0.4em]
+\BLOCK{ endfor }
+\end{multicols}
+
+\newpage
+
+% ==============================================================================
+% SECTION 1: NUMBER & PLACE VALUE
+% ==============================================================================
+\section{Number \& Place Value}
+
+\subsection*{Representing Numbers}
+\VAR{ outcomes('representing_numbers') }
+
+Every whole number is built from digits sitting in place-value columns (ones, tens, hundreds, thousands, \ldots). Each digit's value is \emph{digit $\times$ its column's value}.
+
+\begin{stepsbox}
+\begin{enumerate}[label=\arabic*.]
+  \item Write the number's digits under column headings (Th, H, T, O, \ldots).
+  \item Multiply each digit by its column value to get its \emph{expanded form}.
+  \item To \textbf{round}: find the digit in the place you're rounding to, then look at the digit immediately to its right. 5 or more $\Rightarrow$ round up; less than 5 $\Rightarrow$ round down. Replace every digit to the right with 0.
+\end{enumerate}
+\end{stepsbox}
+
+\begin{examplebox}{Expanded form of 4,637}
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+Thousands & Hundreds & Tens & Ones \\
+\hline
+4 & 6 & 3 & 7 \\
+\hline
+\end{tabular}
+\end{center}
+$4{,}637 = 4\times1000 + 6\times100 + 3\times10 + 7\times1 = 4000+600+30+7$
+\end{examplebox}
+
+\begin{examplebox}{Rounding 4,637 to the nearest hundred}
+The hundreds digit is 6. The digit to its right (tens) is 3. Since $3 < 5$, round down: the hundreds digit stays 6 and everything after becomes 0. $\mathbf{4{,}637 \approx 4{,}600}$.
+\end{examplebox}
+
+\begin{examplebox}{15\% of \$80 (percentages, extension)}
+Break the percentage into easy chunks: $10\%$ of \$80 is \$8. $5\%$ is half of $10\%$, so \$4. $15\% = 10\% + 5\% = \$8 + \$4 = \mathbf{\$12}$.
+\end{examplebox}
+
+\newpage
+
+% ==============================================================================
+% SECTION 2: COLUMN ARITHMETIC
+% ==============================================================================
+\section{Column Arithmetic}
+
+All four column methods below share one rule: \textbf{line up the place values first} (ones under ones, tens under tens\ldots) before you calculate anything.
+
+\subsection*{Vertical Addition}
+\VAR{ outcomes('vertical_addition') }
+
+\begin{stepsbox}
+\begin{enumerate}[label=\arabic*.]
+  \item Add the ones column first (rightmost).
+  \item If the total is 10 or more, write the ones digit and \emph{carry} the ten into the next column.
+  \item Add the tens column (plus any carry), then repeat leftwards.
+\end{enumerate}
+\end{stepsbox}
+
+\begin{examplebox}{$347 + 289$}
+\opadd{347}{289}
+Ones: $7+9=16$, write 6, carry 1. Tens: $4+8+1=13$, write 3, carry 1. Hundreds: $3+2+1=6$. Answer: $\mathbf{636}$.
+\end{examplebox}
+
+\subsection*{Vertical Subtraction}
+\VAR{ outcomes('vertical_subtraction') }
+
+\begin{stepsbox}
+\begin{enumerate}[label=\arabic*.]
+  \item Subtract the ones column first.
+  \item If the top digit is smaller than the bottom digit, \emph{borrow} a ten from the column to the left (adding 10 to the current column).
+  \item If that column is a zero, keep borrowing further left until you find a column with something to lend.
+\end{enumerate}
+\end{stepsbox}
+
+\begin{examplebox}{$702 - 458$ (borrowing across a zero)}
+\opsub{702}{458}
+Ones: $2-8$ won't work. The tens digit is 0, so borrow from the hundreds first: hundreds $7\to6$, tens becomes $10$. Now the tens can lend to the ones: tens $10\to9$, ones becomes $12$. Ones: $12-8=4$. Tens: $9-5=4$. Hundreds: $6-4=2$. Answer: $\mathbf{244}$.
+\end{examplebox}
+
+\begin{mistakebox}
+Don't just "borrow a 1" and forget to reduce the column you borrowed \emph{from}. Every borrow takes 1 away from the column on the left and adds 10 to the column on the right.
+\end{mistakebox}
+
+\subsection*{Vertical Multiplication}
+\VAR{ outcomes('vertical_multiplication') }
+
+\begin{stepsbox}
+\begin{enumerate}[label=\arabic*.]
+  \item Multiply the top number by the ones digit of the bottom number, carrying as needed.
+  \item If the bottom number has a tens digit too, multiply the top number by it, and shift that whole row one place left (this stands in for multiplying by a multiple of ten).
+  \item Add the partial product rows together.
+\end{enumerate}
+\end{stepsbox}
+
+\begin{examplebox}{$47 \times 6$ (single-digit multiplier)}
+\opmul{47}{6}
+$6\times7=42$, write 2, carry 4. $6\times4=24$, plus the carried 4 is 28. Answer: $\mathbf{282}$.
+\end{examplebox}
+
+\begin{examplebox}{$234 \times 23$ (two-digit multiplier, partial products)}
+\opmul{234}{23}
+Row 1: $234 \times 3 = 702$. Row 2: $234 \times 20 = 4{,}680$ --- written as $468$ shifted one place left. Add the rows: $702 + 4{,}680 = \mathbf{5{,}382}$.
+\end{examplebox}
+
+\subsection*{Long Division}
+\VAR{ outcomes('long_division') }
+
+This is the ``bus-stop'' method: divide, multiply, subtract, bring down --- then repeat.
+
+\begin{stepsbox}
+\begin{enumerate}[label=\arabic*.]
+  \item Look at the first digit (or digits) of the dividend. How many times does the divisor fit? Write that above the bus stop.
+  \item Multiply the divisor by that digit and subtract it from the part of the dividend you used.
+  \item Bring down the next digit of the dividend and repeat.
+  \item When there are no more digits to bring down, whatever is left over is the remainder.
+\end{enumerate}
+\end{stepsbox}
+
+\begin{examplebox}{$144 \div 12$ (divides exactly)}
+\opidiv{144}{12}
+$14 \div 12 = 1$ remainder $2$; bring down the $4$ to make $24$. $24 \div 12 = 2$ remainder $0$. Answer: $\mathbf{12}$.
+\end{examplebox}
+
+\begin{examplebox}{$157 \div 4$ (with a remainder)}
+\opidiv{157}{4}
+$15\div4=3$ r$3$; bring down the $7$ to make $37$. $37\div4=9$ r$1$. Answer: $\mathbf{39}$ remainder $\mathbf{1}$.
+\end{examplebox}
+
+\newpage
+
+% ==============================================================================
+% SECTION 3: FRACTIONS & DECIMALS
+% ==============================================================================
+\section{Fractions \& Decimals}
+
+\subsection*{Fractions}
+\VAR{ outcomes('fractions') }
+
+A fraction is \emph{part of a whole}: $\dfrac{\text{numerator}}{\text{denominator}}$. The denominator says how many equal parts the whole is split into; the numerator says how many of those parts you have.
+
+\begin{stepsbox}
+\begin{enumerate}[label=\arabic*.]
+  \item \textbf{Same denominator}: just add/subtract the numerators, keep the denominator.
+  \item \textbf{Different denominators}: find a common denominator (a number both denominators divide into), convert both fractions, \emph{then} add/subtract.
+  \item \textbf{Multiplying fractions}: multiply the numerators together and the denominators together, then simplify.
+  \item \textbf{Mixed numbers}: convert to an improper fraction first (whole $\times$ denominator $+$ numerator), do the operation, then convert back.
+  \item Always simplify your final answer by dividing numerator and denominator by their greatest common factor.
+\end{enumerate}
+\end{stepsbox}
+
+\begin{examplebox}{Same denominator: $\frac{3}{8} + \frac{2}{8}$}
+$\dfrac{3}{8} + \dfrac{2}{8} = \dfrac{3+2}{8} = \mathbf{\dfrac{5}{8}}$
+\end{examplebox}
+
+\begin{examplebox}{Different denominators: $\frac{1}{3} + \frac{1}{4}$}
+Common denominator: 12. $\dfrac{1}{3} = \dfrac{4}{12}$, $\dfrac{1}{4} = \dfrac{3}{12}$. $\dfrac{4}{12} + \dfrac{3}{12} = \mathbf{\dfrac{7}{12}}$
+\end{examplebox}
+
+\begin{examplebox}{Multiplying: $\frac{2}{3} \times \frac{3}{4}$}
+$\dfrac{2 \times 3}{3 \times 4} = \dfrac{6}{12}$. Simplify by dividing by 6: $\mathbf{\dfrac{1}{2}}$
+\end{examplebox}
+
+\begin{examplebox}{Mixed numbers: $2\frac{1}{2} + 1\frac{3}{4}$}
+Convert: $2\frac{1}{2} = \dfrac{5}{2}$, $1\frac{3}{4} = \dfrac{7}{4}$. Common denominator 4: $\dfrac{5}{2}=\dfrac{10}{4}$. $\dfrac{10}{4}+\dfrac{7}{4} = \dfrac{17}{4} = \mathbf{4\dfrac{1}{4}}$
+\end{examplebox}
+
+\newpage
+
+% ==============================================================================
+% SECTION 4: PATTERNS & ALGEBRA
+% ==============================================================================
+\section{Patterns \& Algebra}
+
+\subsection*{Sequences}
+\VAR{ outcomes('sequences') }
+
+\begin{stepsbox}
+\begin{enumerate}[label=\arabic*.]
+  \item Compare consecutive terms. If they differ by the \emph{same amount} each time, it's \textbf{arithmetic} (add/subtract a constant).
+  \item If each term is the \emph{same multiple} of the one before, it's \textbf{geometric} (multiply/divide by a constant).
+  \item Once you know the rule, apply it to find the missing term.
+\end{enumerate}
+\end{stepsbox}
+
+\begin{examplebox}{Arithmetic: $5, 9, 13, 17, \_\_, 25$}
+Differences: $9-5=4$, $13-9=4$, $17-13=4$ --- the rule is ``$+4$''. Missing term: $17+4=\mathbf{21}$.
+\end{examplebox}
+
+\begin{examplebox}{Geometric: $3, 6, 12, 24, \_\_$}
+Ratios: $6/3=2$, $12/6=2$, $24/12=2$ --- the rule is ``$\times 2$''. Missing term: $24\times2=\mathbf{48}$.
+\end{examplebox}
+
+\subsection*{Algebra}
+\VAR{ outcomes('algebra') }
+
+Solving for $x$ uses the \textbf{balance method}: whatever you do to one side of the equals sign, you must do to the other, so the equation stays true.
+
+\begin{stepsbox}
+\begin{enumerate}[label=\arabic*.]
+  \item If there's a number added/subtracted with the $x$ term, undo it first (do the opposite to both sides).
+  \item If $x$ is multiplied by a number, divide both sides by it last.
+  \item If $x$ appears on both sides, move all the $x$ terms to one side first (by adding/subtracting), then solve as above.
+\end{enumerate}
+\end{stepsbox}
+
+\begin{examplebox}{$x + 7 = 12$}
+Subtract 7 from both sides: $x = 12 - 7 = \mathbf{5}$.
+\end{examplebox}
+
+\begin{examplebox}{$4x + 3 = 23$}
+Subtract 3 from both sides: $4x = 20$. Divide both sides by 4: $x = \mathbf{5}$.
+\end{examplebox}
+
+\begin{examplebox}{$5x + 2 = 3x + 14$ (variables on both sides)}
+Subtract $3x$ from both sides: $2x + 2 = 14$. Subtract 2: $2x = 12$. Divide by 2: $x = \mathbf{6}$. Check: $5(6)+2=32$ and $3(6)+14=32$ --- they match.
+\end{examplebox}
+
+\newpage
+
+% ==============================================================================
+% SECTION 5: MEASUREMENT & TIME
+% ==============================================================================
+\section{Measurement \& Time}
+
+\subsection*{Reading Time}
+\VAR{ outcomes('reading_time') }
+
+\begin{stepsbox}
+\begin{enumerate}[label=\arabic*.]
+  \item The \textbf{short} hand shows the hour --- read whichever hour it has \emph{just passed}.
+  \item The \textbf{long} hand shows the minutes. Each number on the clock face is 5 minutes ($12\times5=60$).
+  \item For elapsed time, add the hours and minutes of the duration separately, then carry 60 minutes over as 1 hour if needed.
+\end{enumerate}
+\end{stepsbox}
+
+\begin{examplebox}{Half past 3}
+\begin{center}
+\begin{tikzpicture}[scale=0.9]
+  \draw[very thick] (0,0) circle (1.4cm);
+  \foreach \x in {1,...,12} { \node[font=\small\bfseries] at (90-\x*30:1.15cm) {\x}; }
+  \draw[line width=2pt,-stealth] (0,0) -- (0:0.65cm);
+  \draw[line width=1.2pt,-stealth] (0,0) -- (90:1cm);
+  \fill (0,0) circle (2pt);
+\end{tikzpicture}
+\end{center}
+Hour hand between 3 and 4 (just passed 3); minute hand on 12 $\Rightarrow$ half past means 30 minutes. Time: $\mathbf{3{:}30}$.
+\end{examplebox}
+
+\begin{examplebox}{24-hour arrival time (elapsed time, extension)}
+A flight departs at \textbf{19:30} and takes \textbf{5 hours 15 minutes}. Add hours: $19+5=24$. Add minutes: $30+15=45$. $24{:}45$ isn't valid, so subtract 24 hours and roll into the next day: $\mathbf{00{:}45}$ (next day).
+\end{examplebox}
+
+\subsection*{Date \& Calendar Duration}
+\VAR{ outcomes('date_duration') }
+
+Count forward from the start date to the end date. Watch for month boundaries --- months don't all have the same number of days.
+
+\begin{examplebox}{From 20 May to 15 June}
+Days left in May after the 20th: $31-20=11$. Add all of June up to the 15th: $+15$. Total: $11+15=\mathbf{26}$ days.
+\end{examplebox}
+
+\subsection*{Speed, Distance \& Time}
+\VAR{ outcomes('speed_distance') }
+
+\begin{center}
+\begin{tikzpicture}
+  \draw (0,0) -- (3,0) -- (1.5,2.2) -- cycle;
+  \draw (0,0) -- (1.5,0.73);
+  \node at (1.5,0.35) {Distance};
+  \node at (0.55,1.15) {Speed};
+  \node at (2.45,1.15) {Time};
+\end{tikzpicture}
+\end{center}
+Cover the value you want to find: $\text{Distance} = \text{Speed} \times \text{Time}$, \ $\text{Speed} = \text{Distance} \div \text{Time}$, \ $\text{Time} = \text{Distance} \div \text{Speed}$.
+
+\begin{examplebox}{$60$ km/h for 3 hours}
+$\text{Distance} = \text{Speed}\times\text{Time} = 60\times3=\mathbf{180}$ km.
+\end{examplebox}
+
+\begin{examplebox}{Average speed over two legs (extension)}
+Leg 1: 120 km in 2 h. Leg 2: 180 km in 3 h. Total distance $=300$ km. Total time $=5$ h. Average speed $= 300\div5=\mathbf{60}$ km/h.
+\end{examplebox}
+
+\begin{mistakebox}
+Average speed is \emph{total} distance $\div$ \emph{total} time --- not the average of the two individual speeds (they only happen to agree here because the legs took different times).
+\end{mistakebox}
+
+\newpage
+
+% ==============================================================================
+% SECTION 6: GEOMETRY & SHAPE
+% ==============================================================================
+\section{Geometry \& Shape}
+
+\subsection*{Geometry \& Angles}
+\VAR{ outcomes('geometry_angles') }
+
+\begin{stepsbox}
+\begin{enumerate}[label=\arabic*.]
+  \item \textbf{Classify}: acute $<90^\circ$, right $=90^\circ$, obtuse between $90^\circ$ and $180^\circ$, straight $=180^\circ$, reflex $>180^\circ$.
+  \item Angles on a \textbf{straight line} always add to $180^\circ$.
+  \item Angles inside a \textbf{triangle} always add to $180^\circ$.
+\end{enumerate}
+\end{stepsbox}
+
+\begin{examplebox}{Classifying a $50^\circ$ angle}
+\begin{center}
+\begin{tikzpicture}[scale=0.8]
+  \draw[thick,<->] (2,0) -- (0,0) -- (50:2);
+  \draw[fill=gray!25] (0,0) -- (0.5,0) arc (0:50:0.5) -- cycle;
+  \node at (0.75,0.3) {$50^\circ$};
+\end{tikzpicture}
+\end{center}
+$50^\circ$ is less than $90^\circ$, so this is an \textbf{acute} angle.
+\end{examplebox}
+
+\begin{examplebox}{Missing angle on a straight line}
+One angle on a straight line measures $65^\circ$. The other angle $x$: $x = 180^\circ - 65^\circ = \mathbf{115^\circ}$.
+\end{examplebox}
+
+\begin{examplebox}{Missing angle in a triangle}
+Two angles of a triangle measure $50^\circ$ and $60^\circ$. The third angle $x$: $x = 180^\circ-(50^\circ+60^\circ)=\mathbf{70^\circ}$.
+\end{examplebox}
+
+\subsection*{2D Shapes}
+\VAR{ outcomes('2d_shapes') }
+
+Shapes are classified by their number of sides (triangle 3, quadrilateral 4, pentagon 5, hexagon 6\ldots), and quadrilaterals further by their side/angle properties (rhombus: 4 equal sides; parallelogram: 2 pairs of parallel sides; trapezium: 1 pair of parallel sides). Triangles are classified by side length: equilateral (3 equal), isosceles (2 equal), scalene (none equal).
+
+\begin{examplebox}{Composite area (L-shaped figure)}
+\begin{center}
+\begin{tikzpicture}[scale=0.5]
+  \draw[thick] (0,0) -- (8,0) -- (8,5) -- (4,5) -- (4,3) -- (0,3) -- cycle;
+  \node at (4,-0.5) {8 cm};
+  \node[rotate=90] at (-0.5,1.5) {3 cm};
+  \node at (6,5.5) {4 cm};
+  \node[rotate=90] at (8.5,2.5) {5 cm};
+\end{tikzpicture}
+\end{center}
+Split it into two rectangles: $R_1 = 8\times3=24$ and $R_2=4\times2=8$ (the remaining height above $R_1$ is $5-3=2$). Total area $= 24+8=\mathbf{32\text{ cm}^2}$.
+\end{examplebox}
+
+\subsection*{3D Objects}
+\VAR{ outcomes('3d_objects') }
+
+3D objects have \textbf{faces} (flat surfaces), \textbf{edges} (where two faces meet) and \textbf{vertices} (corners). A cube has 6 square faces; a rectangular prism has 6 rectangular faces; a triangular pyramid has 4 triangular faces.
+
+\begin{examplebox}{Volume \& capacity of a rectangular tank}
+\begin{center}
+\begin{tikzpicture}[scale=0.7]
+  \draw (0,0) rectangle (3,2);
+  \draw (1,1) rectangle (4,3);
+  \draw (0,0)--(1,1); \draw (3,0)--(4,1); \draw (3,2)--(4,3); \draw (0,2)--(1,3);
+  \node at (1.5,-0.4) {6 cm};
+  \node[rotate=90] at (-0.4,1) {4 cm};
+  \node at (3.9,0.3) {10 cm};
+\end{tikzpicture}
+\end{center}
+Volume $= l\times w\times h = 6\times4\times10=240\text{ cm}^3$. Since $1{,}000\text{ cm}^3=1$ litre: capacity $=240\div1000=\mathbf{0.24\text{ L}}$.
+\end{examplebox}
+
+\newpage
+
+% ==============================================================================
+% SECTION 7: STATISTICS & PROBABILITY
+% ==============================================================================
+\section{Statistics \& Probability}
+
+\subsection*{Data \& Graphing}
+\VAR{ outcomes('data') }
+
+For a category question (e.g. "which fruit was most popular?"), just compare the totals. For a numeric dataset:
+
+\begin{stepsbox}
+\begin{enumerate}[label=\arabic*.]
+  \item \textbf{Mean} $=$ (sum of all values) $\div$ (number of values).
+  \item \textbf{Median} $=$ the middle value once the data is sorted (average the middle two if there's an even number of values).
+\end{enumerate}
+\end{stepsbox}
+
+\begin{examplebox}{Dataset: $12, 18, 22, 30, 38$}
+Mean $= (12+18+22+30+38)\div5 = 120\div5=\mathbf{24}$. Median (the middle of 5 sorted values) $=\mathbf{22}$.
+\end{examplebox}
+
+\subsection*{Chance}
+\VAR{ outcomes('chance') }
+
+Likelihood in everyday words: impossible $\to$ unlikely $\to$ even chance $\to$ likely $\to$ certain. As a number, probability $=$ (favourable outcomes) $\div$ (total possible outcomes), written as a fraction.
+
+\begin{examplebox}{Rolling an even number on a die}
+Favourable outcomes: $\{2,4,6\}=3$. Total outcomes: 6. Probability $=\dfrac{3}{6}=\mathbf{\dfrac{1}{2}}$.
+\end{examplebox}
+
+\begin{examplebox}{Two coins: at least one Head}
+All outcomes: $\{HH, HT, TH, TT\}$ --- 4 total. Favourable (at least one H): $\{HH,HT,TH\}$ --- 3. Probability $=\mathbf{\dfrac{3}{4}}$.
+\end{examplebox}
+
+\newpage
+
+% ==============================================================================
+% SECTION 8: GENERAL QUIZ
+% ==============================================================================
+\section{General Quiz: Multiple Choice Strategy}
+
+Multiple choice questions aren't a different kind of maths --- they're the same methods above, with a few test-taking habits that help:
+
+\begin{stepsbox}
+\begin{enumerate}[label=\arabic*.]
+  \item Work out the answer yourself \emph{before} looking at the options, then match it --- don't guess from the options first.
+  \item Read every option; the closest-looking wrong answer is often a deliberate trap.
+  \item If you're stuck, eliminate options you're sure are wrong, then estimate to pick the most reasonable of what's left.
+\end{enumerate}
+\end{stepsbox}
+
+\begin{examplebox}{Perimeter of a square, side 7 cm --- options: 14, 28, 49, 21}
+Perimeter of a square $=4\times\text{side}=4\times7=\mathbf{28\text{ cm}}$.
+\end{examplebox}
+
+\begin{mistakebox}
+$49$ is a trap --- that's the \emph{area} ($7\times7$), not the perimeter. Always check you've used the right formula for what's actually being asked.
+\end{mistakebox}
+
+\end{document}

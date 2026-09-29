@@ -18,6 +18,7 @@ class Question(BaseModel):
     q_type: str = "math"        # 'xlop', 'tikz', 'word', 'math', 'mcq'
     prompt_tex: str
     solution_tex: str
+    answer_value: str = ""      # Plain-text canonical answer (e.g. "742", "3/4", "14:45"), for auto-marking/MCQ
     layout_hint: str = "list"   # 'grid_3col' or 'list'
 
 # ==============================================================================
@@ -182,6 +183,54 @@ for k, v in _csv_outcomes.items():
         }
 
 
+def _has_addition_carry(a: int, b: int) -> bool:
+    """Whether column addition of a+b needs a carry in any place. xlop only
+    reserves vertical space for the (phantom) carry row when this is true, so
+    a set of side-by-side problems where some carry and some don't will not
+    line up - callers use this to keep a whole topic's carry-ness consistent
+    with its allow_carrying setting."""
+    carry = 0
+    any_carry = False
+    while a > 0 or b > 0:
+        total = (a % 10) + (b % 10) + carry
+        carry = 1 if total >= 10 else 0
+        any_carry = any_carry or bool(carry)
+        a //= 10
+        b //= 10
+    return any_carry
+
+
+def _has_subtraction_borrow(a: int, b: int) -> bool:
+    """Whether column subtraction of a-b (a >= b) needs a borrow in any
+    place - same rationale as _has_addition_carry, for allow_borrowing."""
+    borrow = 0
+    any_borrow = False
+    while a > 0 or b > 0:
+        da, db = (a % 10) - borrow, b % 10
+        borrow = 1 if da < db else 0
+        any_borrow = any_borrow or bool(borrow)
+        a //= 10
+        b //= 10
+    return any_borrow
+
+
+def _rand_sub_pair(a_lo: int, a_hi: int, b_lo: int):
+    a = random.randint(a_lo, a_hi)
+    b = random.randint(b_lo, a - 1)
+    return a, b
+
+
+def _regenerate_until(pair_fn, check_fn, want: bool, max_attempts: int = 200):
+    """Calls pair_fn() -> (a, b) until check_fn(a, b) == want, or gives up
+    after max_attempts and returns whatever was last generated."""
+    a, b = pair_fn()
+    for _ in range(max_attempts):
+        if check_fn(a, b) == want:
+            break
+        a, b = pair_fn()
+    return a, b
+
+
 class QuestionBank:
     """Generates dynamic mathematics questions aligned to NESA Syllabus outcomes across EASY, MEDIUM, HARD, and GENIUS difficulties."""
 
@@ -229,6 +278,7 @@ class QuestionBank:
             num = random.randint(12, 98)
             prompt = f"Write the place value decomposition of $\\mathbf{{{num}}}$ (Tens and Ones):"
             solution = f"$\\mathbf{{{num}}} = {num//10} \\text{{ tens}} + {num%10} \\text{{ ones}}$"
+            answer_value = f"{num//10} tens + {num%10} ones"
         elif diff == "genius":
             pct = random.choice([15, 25, 35, 45, 65, 75])
             amount = random.choice([200, 320, 480, 640, 800])
@@ -237,21 +287,24 @@ class QuestionBank:
             g = math.gcd(rem, amount)
             prompt = f"Determine $\\mathbf{{{pct}\\%}}$ of $\\mathbf{{\\${amount}}}$, and express the remaining amount as a fraction of the total in simplest form:"
             solution = f"${pct}\\% \\text{{ of }} \\${amount} = \\mathbf{{\\${val}}}$. Remaining amount is $\\${rem} = \\mathbf{{\\dfrac{{{rem//g}}}{{{amount//g}}}}}$ of the total."
+            answer_value = str(val)
         elif diff == "hard":
             num = random.randint(100000, 999999)
             prompt = f"Round $\\mathbf{{{num:,}}}$ to the nearest thousand:"
             rounded = round(num, -3)
             solution = f"$\\mathbf{{{rounded:,}}}$"
+            answer_value = str(rounded)
         else: # medium
             num = random.randint(1000, 9999)
             prompt = f"State the value of the digit in the hundreds place for $\\mathbf{{{num:,}}}$:"
             val = (num // 100) % 10
             solution = f"Digit is ${val}$, representing $\\mathbf{{{val * 100}}}$"
+            answer_value = str(val * 100)
 
         return Question(
             section=meta["focus_area"], topic="representing_numbers", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+            prompt_tex=prompt, solution_tex=solution, answer_value=answer_value, layout_hint="list"
         )
 
     # 2. Vertical Addition
@@ -289,7 +342,7 @@ class QuestionBank:
             return Question(
                 section=meta["focus_area"], topic="vertical_addition", outcome_code=code,
                 focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-                q_type="xlop", prompt_tex=prompt, solution_tex=solution, layout_hint="grid_3col"
+                q_type="xlop", prompt_tex=prompt, solution_tex=solution, answer_value=str(ans), layout_hint="grid_3col"
             )
 
         if diff == "easy":
@@ -317,17 +370,21 @@ class QuestionBank:
             return Question(
                 section=meta["focus_area"], topic="vertical_addition", outcome_code=code,
                 focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-                q_type="math", prompt_tex=prompt, solution_tex=solution, layout_hint="grid_3col"
+                q_type="math", prompt_tex=prompt, solution_tex=solution, answer_value=str(ans), layout_hint="grid_3col"
             )
         elif diff == "hard":
-            a = random.randint(1000, 9999)
-            b = random.randint(1000, 9999)
+            a, b = _regenerate_until(
+                lambda: (random.randint(1000, 9999), random.randint(1000, 9999)),
+                _has_addition_carry, allow_carrying
+            )
             ans = a + b
             prompt = f"\\opadd[carrystyle=\\phantom,resultstyle=\\phantom]{{{a}}}{{{b}}}"
             solution = f"${a} + {b} = \\mathbf{{{ans}}}$"
         else: # medium
-            a = random.randint(100, 999)
-            b = random.randint(100, 999)
+            a, b = _regenerate_until(
+                lambda: (random.randint(100, 999), random.randint(100, 999)),
+                _has_addition_carry, allow_carrying
+            )
             ans = a + b
             prompt = f"\\opadd[carrystyle=\\phantom,resultstyle=\\phantom]{{{a}}}{{{b}}}"
             solution = f"${a} + {b} = \\mathbf{{{ans}}}$"
@@ -335,7 +392,7 @@ class QuestionBank:
         return Question(
             section=meta["focus_area"], topic="vertical_addition", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            q_type="xlop", prompt_tex=prompt, solution_tex=solution, layout_hint="grid_3col"
+            q_type="xlop", prompt_tex=prompt, solution_tex=solution, answer_value=str(ans), layout_hint="grid_3col"
         )
 
     # 3. Vertical Subtraction
@@ -382,11 +439,15 @@ class QuestionBank:
                 a = random.choice([50000, 100000, 70000, 90000])
                 b = random.randint(12345, a - 1000)
             elif diff == "hard":
-                a = random.randint(1000, 9999)
-                b = random.randint(100, a - 1)
+                a, b = _regenerate_until(
+                    lambda: _rand_sub_pair(1000, 9999, 100),
+                    _has_subtraction_borrow, allow_borrowing
+                )
             else: # medium
-                a = random.randint(100, 999)
-                b = random.randint(10, a - 1)
+                a, b = _regenerate_until(
+                    lambda: _rand_sub_pair(100, 999, 10),
+                    _has_subtraction_borrow, allow_borrowing
+                )
 
         ans = a - b
         prompt = f"\\opsub[carrystyle=\\phantom,resultstyle=\\phantom]{{{a}}}{{{b}}}"
@@ -394,7 +455,7 @@ class QuestionBank:
         return Question(
             section=meta["focus_area"], topic="vertical_subtraction", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            q_type="xlop", prompt_tex=prompt, solution_tex=solution, layout_hint="grid_3col"
+            q_type="xlop", prompt_tex=prompt, solution_tex=solution, answer_value=str(ans), layout_hint="grid_3col"
         )
 
     # 4. Vertical Multiplication
@@ -453,7 +514,7 @@ class QuestionBank:
         return Question(
             section=meta["focus_area"], topic="vertical_multiplication", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            q_type="xlop", prompt_tex=prompt, solution_tex=solution, layout_hint="grid_3col"
+            q_type="xlop", prompt_tex=prompt, solution_tex=solution, answer_value=str(ans), layout_hint="grid_3col"
         )
 
     # 5. Long Division
@@ -520,11 +581,12 @@ class QuestionBank:
 
         prompt = f"$\\begin{{array}}[t]{{r@{{\\quad}}r}} & {dividend:,} \\\\ \\div & {divisor_val} \\\\ \\hline \\end{{array}}$"
         solution = f"${dividend:,} \\div {divisor_val} = \\mathbf{{{quotient:,} \\text{{ r }} {remainder}}}$" if remainder > 0 else f"${dividend:,} \\div {divisor_val} = \\mathbf{{{quotient:,}}}$"
+        answer_value = f"{quotient} r {remainder}" if remainder > 0 else str(quotient)
 
         return Question(
             section=meta["focus_area"], topic="long_division", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            q_type="math", prompt_tex=prompt, solution_tex=solution, layout_hint="grid_3col"
+            q_type="math", prompt_tex=prompt, solution_tex=solution, answer_value=answer_value, layout_hint="grid_3col"
         )
 
     # 6. Sequences & Patterns
@@ -602,7 +664,7 @@ class QuestionBank:
         return Question(
             section=meta["focus_area"], topic="sequences", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+            prompt_tex=prompt, solution_tex=solution, answer_value=str(ans), layout_hint="list"
         )
 
     # 7. Fractions
@@ -640,6 +702,7 @@ class QuestionBank:
             g = math.gcd(ans_num, denom)
             prompt = f"Calculate: $\\dfrac{{{num1}}}{{{denom}}} + \\dfrac{{{num2}}}{{{denom}}} = \\underline{{\\hspace{{2.5cm}}}}$"
             solution = f"$\\dfrac{{{num1}}}{{{denom}}} + \\dfrac{{{num2}}}{{{denom}}} = \\mathbf{{\\dfrac{{{ans_num//g}}}{{{denom//g}}}}}$"
+            answer_value = f"{ans_num//g}/{denom//g}"
         elif diff == "genius":
             # Mixed numbers operations e.g. 2 (1/2) + 1 (3/4)
             w1, w2 = random.randint(1, 3), random.randint(1, 3)
@@ -652,6 +715,7 @@ class QuestionBank:
             w_ans, r_num = divmod(fin_num, fin_den)
             prompt = f"Calculate and simplify: ${w1}\\dfrac{{{n1}}}{{{d1}}} + {w2}\\dfrac{{{n2}}}{{{d2}}} = \\underline{{\\hspace{{2.5cm}}}}$"
             solution = f"${w1}\\dfrac{{{n1}}}{{{d1}}} + {w2}\\dfrac{{{n2}}}{{{d2}}} = \\mathbf{{{w_ans}\\dfrac{{{r_num}}}{{{fin_den}}}}}$" if r_num > 0 else f"$\\mathbf{{{w_ans}}}$"
+            answer_value = f"{w_ans} {r_num}/{fin_den}" if r_num > 0 else str(w_ans)
         elif diff == "hard":
             d1, d2 = random.choice([(3, 4), (2, 5), (3, 5), (4, 5)])
             n1, n2 = random.randint(1, d1 - 1), random.randint(1, d2 - 1)
@@ -659,6 +723,7 @@ class QuestionBank:
             g = math.gcd(ans_n, ans_d)
             prompt = f"Multiply the fractions: $\\dfrac{{{n1}}}{{{d1}}} \\times \\dfrac{{{n2}}}{{{d2}}} = \\underline{{\\hspace{{2.5cm}}}}$"
             solution = f"$\\dfrac{{{n1} \\times {n2}}}{{{d1} \\times {d2}}} = \\mathbf{{\\dfrac{{{ans_n//g}}}{{{ans_d//g}}}}}$"
+            answer_value = f"{ans_n//g}/{ans_d//g}"
         else: # medium
             d1 = random.choice([2, 3, 4, 5])
             d2 = random.choice([3, 4, 5, 6])
@@ -670,11 +735,12 @@ class QuestionBank:
             g = math.gcd(ans_num, lcm)
             prompt = f"Calculate and simplify: $\\dfrac{{{n1}}}{{{d1}}} + \\dfrac{{{n2}}}{{{d2}}} = \\underline{{\\hspace{{2.5cm}}}}$"
             solution = f"$\\dfrac{{{ans_num}}}{{{lcm}}} = \\mathbf{{\\dfrac{{{ans_num//g}}}{{{lcm//g}}}}}$"
+            answer_value = f"{ans_num//g}/{lcm//g}"
 
         return Question(
             section=meta["focus_area"], topic="fractions", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+            prompt_tex=prompt, solution_tex=solution, answer_value=answer_value, layout_hint="list"
         )
 
     # 8. Algebra
@@ -734,7 +800,7 @@ class QuestionBank:
         return Question(
             section=meta["focus_area"], topic="algebra", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+            prompt_tex=prompt, solution_tex=solution, answer_value=str(x_val), layout_hint="list"
         )
 
     # 9. Reading Time
@@ -784,7 +850,8 @@ class QuestionBank:
             return Question(
                 section=meta["focus_area"], topic="reading_time", outcome_code=code,
                 focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-                q_type="word", prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+                q_type="word", prompt_tex=prompt, solution_tex=solution,
+                answer_value=f"{arr_h:02d}:{arr_m:02d}", layout_hint="list"
             )
 
         h_angle = 90 - (hour * 30 + minute * 0.5)
@@ -809,7 +876,7 @@ class QuestionBank:
         return Question(
             section=meta["focus_area"], topic="reading_time", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            q_type="tikz", prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+            q_type="tikz", prompt_tex=prompt, solution_tex=solution, answer_value=time_str, layout_hint="list"
         )
 
     # 10. Geometry & Angles
@@ -843,6 +910,7 @@ class QuestionBank:
             missing = 180 - (a1 + a2)
             prompt = f"In a triangle, two interior angles measure ${a1}^\\circ$ and ${a2}^\\circ$. Calculate the third angle $x$:"
             solution = f"$x = 180^\\circ - ({a1}^\\circ + {a2}^\\circ) = \\mathbf{{{missing}^\\circ}}$"
+            answer_value = str(missing)
         elif diff == "hard":
             known_deg = random.randint(35, 145)
             missing_deg = 180 - known_deg
@@ -857,6 +925,7 @@ class QuestionBank:
                 f"$x = \\underline{{\\hspace{{3cm}}}}$"
             )
             solution = f"$x = 180^\\circ - {known_deg}^\\circ = \\mathbf{{{missing_deg}^\\circ}}$"
+            answer_value = str(missing_deg)
         else:
             angle_type = random.choice(["acute", "right", "obtuse"])
             deg = random.randint(25, 75) if angle_type == "acute" else (90 if angle_type == "right" else random.randint(105, 155))
@@ -869,11 +938,13 @@ class QuestionBank:
                 f"Angle Type: \\underline{{\\hspace{{3cm}}}}"
             )
             solution = f"Angle is ${deg}^\\circ$, which is an \\textbf{{{angle_type.capitalize()} Angle}}."
+            answer_value = angle_type.capitalize()
 
         return Question(
             section=meta["focus_area"], topic="geometry_angles", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            q_type="tikz" if diff != "genius" else "math", prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+            q_type="tikz" if diff != "genius" else "math", prompt_tex=prompt, solution_tex=solution,
+            answer_value=answer_value, layout_hint="list"
         )
 
     # 11. 2D Shapes & Spatial Structure
@@ -898,28 +969,32 @@ class QuestionBank:
             s_name, sides = random.choice(shapes)
             prompt = f"How many sides does a \\textbf{{{s_name}}} have?"
             solution = f"A {s_name} has $\\mathbf{{{sides}}}$ sides."
+            answer_value = str(sides)
         elif diff == "genius":
             l1, w1 = random.randint(6, 12), random.randint(4, 8)
             l2, w2 = random.randint(3, 5), random.randint(2, 4)
             area = (l1 * w1) + (l2 * w2)
             prompt = f"An L-shaped figure is formed by two rectangles: $R_1 ({l1}\\text{{ cm}} \\times {w1}\\text{{ cm}})$ and $R_2 ({l2}\\text{{ cm}} \\times {w2}\\text{{ cm}})$. Calculate the total area:"
             solution = f"$\\text{{Total Area}} = ({l1} \\times {w1}) + ({l2} \\times {w2}) = {l1*w1} + {l2*w2} = \\mathbf{{{area}\\text{{ cm}}^2}}$"
+            answer_value = str(area)
         elif diff == "hard":
             triangles = ["Equilateral (3 equal sides)", "Isosceles (2 equal sides)", "Scalene (no equal sides)"]
             choice = random.choice(triangles)
             t_name = choice.split()[0]
             prompt = f"Classify a triangle that has {choice.split('(')[1][:-1]}:"
             solution = f"\\textbf{{{t_name} Triangle}}"
+            answer_value = t_name
         else:
             shapes = [("Parallelogram", "2 pairs of parallel sides"), ("Rhombus", "4 equal sides"), ("Trapezium", "1 pair of parallel sides")]
             name, feat = random.choice(shapes)
             prompt = f"Name the quadrilateral that has \\textbf{{{feat}}}:"
             solution = f"\\textbf{{{name}}}"
+            answer_value = name
 
         return Question(
             section=meta["focus_area"], topic="2d_shapes", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+            prompt_tex=prompt, solution_tex=solution, answer_value=answer_value, layout_hint="list"
         )
 
     # 12. 3D Objects & Nets
@@ -943,18 +1018,20 @@ class QuestionBank:
             l, w, h = random.randint(4, 10), random.randint(3, 8), random.randint(5, 12)
             vol = l * w * h
             cap_l = vol / 1000.0
-            prompt = f"A rectangular tank measures $\\mathbf{{{l}\\text{{ cm}} \\times {w}\\text{{ cm}} \\times {h}\\text{{ cm}}}$. Calculate its capacity in litres ($1000\\text{{ cm}}^3 = 1\\text{{ L}}$):"
+            prompt = f"A rectangular tank measures $\\mathbf{{{l}\\text{{ cm}} \\times {w}\\text{{ cm}} \\times {h}\\text{{ cm}}}}$. Calculate its capacity in litres ($1000\\text{{ cm}}^3 = 1\\text{{ L}}$):"
             solution = f"$\\text{{Volume}} = {vol}\\text{{ cm}}^3 \\implies \\text{{Capacity}} = \\mathbf{{{cap_l:.2f}\\text{{ L}}}}$"
+            answer_value = f"{cap_l:.2f}"
         else:
             objs = [("Cube", 6, "square"), ("Rectangular Prism", 6, "rectangular"), ("Triangular Pyramid", 4, "triangular")]
             name, faces, f_type = random.choice(objs)
             prompt = f"How many flat faces does a \\textbf{{{name}}} have?"
             solution = f"A {name} has $\\mathbf{{{faces}}}$ {f_type} faces."
+            answer_value = str(faces)
 
         return Question(
             section=meta["focus_area"], topic="3d_objects", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+            prompt_tex=prompt, solution_tex=solution, answer_value=answer_value, layout_hint="list"
         )
 
     # 13. Data & Graphing
@@ -980,14 +1057,16 @@ class QuestionBank:
             median_val = dataset[2]
             prompt = f"Calculate the mean and median of the dataset: ${', '.join(map(str, dataset))}$"
             solution = f"$\\text{{Mean}} = \\mathbf{{{mean_val:.1f}}}$, $\\text{{Median}} = \\mathbf{{{median_val}}}$"
+            answer_value = f"Mean {mean_val:.1f}, Median {median_val}"
         else:
             prompt = "In a class survey, 8 students chose Apples, 12 chose Bananas, and 5 chose Oranges. Which fruit was most popular?"
             solution = "\\textbf{Bananas} (12 students)"
+            answer_value = "Bananas"
 
         return Question(
             section=meta["focus_area"], topic="data", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+            prompt_tex=prompt, solution_tex=solution, answer_value=answer_value, layout_hint="list"
         )
 
     # 14. Chance & Probability
@@ -1010,17 +1089,20 @@ class QuestionBank:
         if diff == "genius":
             prompt = "Two fair coins are flipped simultaneously. What is the probability of getting at least one Head? Express as a fraction."
             solution = "Possible outcomes: $\\{HH, HT, TH, TT\\}$. Favourable: 3. $\\text{Probability} = \\mathbf{\\dfrac{3}{4}}$."
+            answer_value = "3/4"
         elif diff == "hard":
             prompt = "What is the probability of rolling an even number on a standard 6-sided die? Express as a fraction."
             solution = "$\\mathbf{\\dfrac{3}{6} = \\dfrac{1}{2}}$"
+            answer_value = "1/2"
         else:
             prompt = "Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} to roll a 7 on a standard 6-sided die?"
             solution = "\\textbf{Impossible} (die only has numbers 1--6)"
+            answer_value = "Impossible"
 
         return Question(
             section=meta["focus_area"], topic="chance", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+            prompt_tex=prompt, solution_tex=solution, answer_value=answer_value, layout_hint="list"
         )
 
     # 15. Date Duration
@@ -1050,7 +1132,7 @@ class QuestionBank:
         return Question(
             section=meta["focus_area"], topic="date_duration", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+            prompt_tex=prompt, solution_tex=solution, answer_value=str(duration_days), layout_hint="list"
         )
 
     # 16. Speed & Distance
@@ -1081,14 +1163,16 @@ class QuestionBank:
             avg_s = tot_d // tot_t
             prompt = f"{driver} drives $\\mathbf{{{d1}\\text{{ km}}}}$ in $\\mathbf{{{t1}\\text{{ hours}}}}$ and then $\\mathbf{{{d2}\\text{{ km}}}}$ in $\\mathbf{{{t2}\\text{{ hours}}}}$. Calculate the average speed for the whole journey:"
             solution = f"$\\text{{Average Speed}} = \\dfrac{{\\text{{Total Distance}}}}{{\\text{{Total Time}}}} = \\dfrac{{{tot_d}}}{{{tot_t}}} = \\mathbf{{{avg_s}\\text{{ km/h}}}}$"
+            answer_value = str(avg_s)
         else:
             prompt = f"{driver} drives a car at a constant speed of $\\mathbf{{{speed}\\text{{ km/h}}}}$ for $\\mathbf{{{hours}\\text{{ hours}}}}$. How far did {driver} travel?"
             solution = f"$\\text{{Distance}} = \\text{{Speed}} \\times \\text{{Time}} = {speed} \\times {hours} = \\mathbf{{{dist}\\text{{ km}}}}$"
+            answer_value = str(dist)
 
         return Question(
             section=meta["focus_area"], topic="speed_distance", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+            prompt_tex=prompt, solution_tex=solution, answer_value=answer_value, layout_hint="list"
         )
 
     # 17. Multiple Choice Quiz
@@ -1147,7 +1231,7 @@ class QuestionBank:
         return Question(
             section="General Mathematics Quiz", topic="multiple_choice", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            q_type="mcq", prompt_tex=prompt, solution_tex=solution, layout_hint="list"
+            q_type="mcq", prompt_tex=prompt, solution_tex=solution, answer_value=item['ans'], layout_hint="list"
         )
 
 

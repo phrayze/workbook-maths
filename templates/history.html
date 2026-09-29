@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Test History &mdash; NSW Maths Workbook</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>Past Online Test Results</h1>
+    <nav><a href="{{ url_for('index') }}">Back to picker</a></nav>
+  </header>
+
+  <form method="get" action="{{ url_for('history') }}" class="filter-form">
+    <label>Filter by student
+      <input type="text" name="student" value="{{ student }}" placeholder="Leave blank for everyone">
+    </label>
+    <button type="submit">Filter</button>
+  </form>
+
+  {% if not entries %}
+  <p>No online test attempts recorded yet.</p>
+  {% else %}
+  {% for entry in entries %}
+  <div class="history-entry">
+    <h3>{{ entry.student }} &mdash; Stage {{ entry.stage }} &mdash; {{ entry.date }}</h3>
+    <p>Overall: {{ entry.overall.correct }}/{{ entry.overall.attempted }} attempted ({{ (entry.overall.accuracy * 100)|round(0, 'floor')|int }}%){% if entry.overall.not_attempted %} &mdash; {{ entry.overall.not_attempted }} not attempted{% endif %}</p>
+    <ul>
+      {% for topic, scores in entry.topics.items() %}
+      <li>{{ topic.replace('_', ' ')|title }}: {{ scores.correct }}/{{ scores.attempted }} attempted ({{ (scores.accuracy * 100)|round(0, 'floor')|int }}%){% if scores.not_attempted %} &mdash; {{ scores.not_attempted }} not attempted{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+  {% endif %}
+</body>
+</html>

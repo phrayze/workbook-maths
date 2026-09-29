@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NSW Maths Workbook Builder</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>NSW Maths Workbook Builder</h1>
+    <p class="subtitle">NESA 2022 Mathematics K-10 &mdash; Stage 1, 2 &amp; 3 practice sheet &amp; online test generator</p>
+    <nav><a href="{{ url_for('history') }}">View past test results</a></nav>
+  </header>
+
+  {% if error %}
+  <div class="banner banner-error">{{ error }}</div>
+  {% endif %}
+
+  {% if weak_topics %}
+  <div class="banner banner-suggestion">
+    <strong>Suggestion based on {{ student }}'s recent online test results:</strong>
+    <ul>
+      {% for topic, accuracy in weak_topics.items() %}
+      <li>{{ topic.replace('_', ' ')|title }} &mdash; {{ (accuracy * 100)|round(0, 'floor')|int }}% accuracy. Consider more practice questions here.</li>
+      {% endfor %}
+    </ul>
+    <p>This is a suggestion only &mdash; nothing has been changed automatically. Adjust the counts/difficulty below as you see fit.</p>
+  </div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('build') }}">
+    <section class="global-options">
+      <label>Student name
+        <input type="text" name="student" value="{{ student }}" placeholder="e.g. Alex">
+      </label>
+      <label>Key Stage
+        <select name="stage" id="stage-select">
+          <option value="1" {% if stage == 1 %}selected{% endif %}>Stage 1 (Years 1&ndash;2)</option>
+          <option value="2" {% if stage == 2 %}selected{% endif %}>Stage 2 (Years 3&ndash;4)</option>
+          <option value="3" {% if stage == 3 %}selected{% endif %}>Stage 3 (Years 5&ndash;6)</option>
+        </select>
+      </label>
+      <label>Random seed (optional, for a reproducible sheet)
+        <input type="text" name="seed" value="{{ seed }}" placeholder="e.g. 42, leave blank for random">
+      </label>
+    </section>
+
+    {% for area in areas %}
+    <fieldset class="practice-area area-color-{{ loop.index0 % 8 }}">
+      <legend>{{ area }}</legend>
+      {% for entry in catalogue[area] %}
+      <div class="topic-row">
+        <div class="topic-row-main">
+          <label class="topic-name">
+            <input type="checkbox" name="enable_{{ entry.topic }}" {% if entry.enabled %}checked{% endif %}>
+            {{ entry.topic.replace('_', ' ')|title }}
+          </label>
+          <label class="count-field">Count
+            <input type="number" name="count_{{ entry.topic }}" value="{{ entry.count }}" min="0" max="20">
+          </label>
+          <label class="difficulty-field">Difficulty
+            <select name="difficulty_{{ entry.topic }}">
+              {% for level in ['easy', 'medium', 'hard', 'genius'] %}
+              <option value="{{ level }}" {% if entry.difficulty == level %}selected{% endif %}>{{ level|title }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          {% if entry.outcomes %}
+          <span class="outcomes">
+            {% for o in entry.outcomes %}<span class="outcome-chip" title="{{ o.capability }}">{{ o.key }} ({{ o.difficulty }})</span>{% endfor %}
+          </span>
+          {% endif %}
+        </div>
+        {% if entry.advanced_fields %}
+        <details class="advanced">
+          <summary>Advanced options</summary>
+          <div class="advanced-fields">
+            {% for field in entry.advanced_fields %}
+            {% set value = entry.advanced_values[field.name] %}
+            <label class="advanced-field">
+              {{ field.label }}
+              {% if field.type == 'bool' %}
+                <input type="checkbox" name="adv_{{ entry.topic }}_{{ field.name }}" {% if value %}checked{% endif %}>
+              {% elif field.type == 'int_select' %}
+                <select name="adv_{{ entry.topic }}_{{ field.name }}">
+                  {% for opt in field.options %}
+                  <option value="{{ opt }}" {% if value == opt %}selected{% endif %}>{{ opt }}</option>
+                  {% endfor %}
+                </select>
+              {% elif field.type == 'select' %}
+                <select name="adv_{{ entry.topic }}_{{ field.name }}">
+                  {% for opt in field.options %}
+                  <option value="{{ opt }}" {% if value == opt %}selected{% endif %}>{{ opt|title }}</option>
+                  {% endfor %}
+                </select>
+              {% elif field.type == 'times_table' %}
+                <input type="text" name="adv_{{ entry.topic }}_{{ field.name }}" value="{{ value }}" placeholder="blank = random" size="12">
+                {% if field.help %}<span class="field-help">{{ field.help }}</span>{% endif %}
+              {% elif field.type == 'int_range' %}
+                <span class="int-range">
+                  <input type="number" name="adv_{{ entry.topic }}_{{ field.name }}_min" value="{{ value[0] }}" min="1" max="100" size="4">
+                  &ndash;
+                  <input type="number" name="adv_{{ entry.topic }}_{{ field.name }}_max" value="{{ value[1] }}" min="1" max="100" size="4">
+                </span>
+              {% endif %}
+            </label>
+            {% endfor %}
+          </div>
+        </details>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </fieldset>
+    {% endfor %}
+
+    <div class="actions">
+      <button type="submit" name="action" value="pdf">Save &amp; Generate PDF</button>
+      <button type="submit" name="action" value="quiz">Save &amp; Start Online Test</button>
+    </div>
+  </form>
+</body>
+</html>

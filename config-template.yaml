@@ -6,11 +6,13 @@
 # ------------------------------------------------------------------------------
 # CURRICULUM ALIGNMENT & DIFFICULTY GRADING KEY
 # ------------------------------------------------------------------------------
-# Difficulty levels correspond to NESA Stage expectations:
+# Difficulty levels correspond to NESA Stage expectations. Every topic below is
+# also catalogued in maths-curriculum-ks1_2_3.csv (Topic / Difficulty / Practice
+# Area columns), which is the source the web app's Practice Area picker reads.
 #
 # 🟢 EASY (Stage 1 / Early Stage 2 Foundation):
 #    - Focus: Single to 2-digit numbers, no regrouping/carrying/borrowing.
-#    - Outcomes: 
+#    - Outcomes:
 #      • MA1-CSQ-01 (Addition & Subtraction to 20 / 2-digit basic)
 #      • MA1-FG-01  (Equal groups, skip counting by 2, 5, 10)
 #      • MA1-RWN-01 (Whole number patterns)
@@ -25,6 +27,9 @@
 #      • MA2-PF-01  (Fractions: halves, thirds, quarters, fifths)
 #      • MA2-GM-03  (Classifying angles relative to right angles)
 #      • MA2-NSM-02 (Analog & digital time to 5-minute intervals)
+#      • MA2-RN-01  (Place value to tens of thousands)
+#      • MA2-2DS-01 / MA2-3DS-01 (2D shape features & 3D object nets)
+#      • MA2-DATA-01 / MA2-CHAN-01 (Collecting data, chance experiments)
 #
 # 🔴 HARD (Stage 3 Extension - Years 5–6):
 #    - Focus: 3-4 digit vertical operations, long division with remainders, geometric proofs.
@@ -35,6 +40,12 @@
 #      • MA3-RQF-01 (Fractions with related/unrelated denominators & multiplication)
 #      • MA3-GM-03  (Calculating missing angles on a straight line: 180° - x)
 #      • MA3-NSM-02 (Elapsed time duration & 12/24-hour time conversion)
+#      • MA3-RN-01  (Representing/rounding large numbers)
+#      • MA3-2DS-01 / MA3-3DS-01 (Classifying shapes, visualising 3D nets)
+#      • MA3-DATA-01 / MA3-CHAN-01 (Many-to-one scale graphs, probability)
+#
+# There is also an optional "genius" tier on most topics for extension beyond
+# Stage 3 (e.g. percentages, mixed-number fractions, multi-leg speed problems).
 #
 # ==============================================================================
 
@@ -42,26 +53,44 @@
 # 1. Global Workbook Options
 # ------------------------------------------------------------------------------
 title: "Primary Mathematics Master Practice Workbook"
-subtitle: "NSW Curriculum Aligned (NESA 2022 Stage 1, 2 & 3)"
-stage: 2                              # Curriculum Stage: 1 (Y1-2), 2 (Y3-4), 3 (Y5-6)
-header_left: "NSW Primary Mathematics Practice"
-seed: 42                              # Integer for reproducible random questions, or null for random
+subtitle: "NSW Curriculum Aligned"
+stage: 1                              # Curriculum Stage: 1 (Y1-2), 2 (Y3-4), 3 (Y5-6)
+header_left: "Mathematics Practice"
+seed: null                              # Integer for reproducible random questions, or null for random
 include_solutions: true               # Set true to append Worked Solutions & Answer Key page
 font_size: "14pt"                     # Document base font size (Supported: 8pt, 9pt, 10pt, 11pt, 12pt, 14pt, 17pt, 20pt)
 working_space: "3cm"                  # Global default vertical workspace under questions (e.g. 2.5cm, 3cm, 4cm)
 
 # ------------------------------------------------------------------------------
 # 2. Section & Topic Configurations
+# Each section below corresponds to one "Practice Area" in the CSV question
+# bank, so the web app can render/save these sections directly.
 # ------------------------------------------------------------------------------
 sections:
 
   # ----------------------------------------------------------------------------
-  # SECTION 1: COLUMN ARITHMETIC
-  # Outcomes: MA1-CSQ-01, MA2-AR-01, MA3-AR-01, MA2-MR-01, MA3-MR-01
+  # SECTION 1: NUMBER & PLACE VALUE
+  # Outcomes: MA1-RWN-01, MA2-RN-01, MA3-RN-01, MA3-RN-03
+  # Layout: list
+  # ----------------------------------------------------------------------------
+  - title: "1. Number & Place Value"
+    description: "Read, write, round and decompose whole numbers using place value."
+    layout: "list"
+    working_space: "2.5cm"
+    topics:
+
+      representing_numbers:
+        count: 3
+        difficulty: "medium"          # Options: easy (MA1-RWN-01), medium (MA2-RN-01), hard (MA3-RN-01), genius (MA3-RN-03, percentages)
+
+
+  # ----------------------------------------------------------------------------
+  # SECTION 2: COLUMN ARITHMETIC (Addition, Subtraction, Multiplication & Long Division)
+  # Outcomes: MA1-CSQ-01, MA2-AR-01, MA3-AR-01, MA1-FG-01, MA2-MR-01, MA3-MR-01, MA2-MR-02
   # Layout: grid_3col (Presents problems side-by-side in 3 columns)
   # Answers: Omitted on student page (uses phantom styling), printed in Answer Key
   # ----------------------------------------------------------------------------
-  - title: "1. Column Arithmetic (Addition, Subtraction, Multiplication & Long Division)"
+  - title: "2. Column Arithmetic"
     description: "Solve each vertical problem carefully in the space provided. Show regrouping/carrying digits where needed."
     layout: "grid_3col"
     working_space: "3.5cm"            # Extra space for vertical calculations
@@ -72,7 +101,7 @@ sections:
         count: 6                      # Number of questions to generate
         digits: 3                     # Number of digits per operand (2, 3, 4)
         allow_carrying: true          # Enable carrying/regrouping across columns
-        difficulty: "medium"          # Options: easy (MA1-CSQ-01), medium (MA2-AR-01), hard (MA3-AR-01)
+        difficulty: "medium"          # Options: easy (MA1-CSQ-01), medium (MA2-AR-01), hard/genius (MA3-AR-01)
         # Optional Fixed Questions Override:
         # fixed_questions:
         #   - { top: 458, bottom: 279 }
@@ -82,7 +111,7 @@ sections:
         count: 6
         digits: 3
         allow_borrowing: true         # Enable borrowing/regrouping across columns
-        difficulty: "medium"          # Options: easy (MA1-CSQ-01), medium (MA2-AR-01), hard (MA3-AR-01)
+        difficulty: "medium"          # Options: easy (MA1-CSQ-01), medium (MA2-AR-01), hard/genius (MA3-AR-01)
         # fixed_questions:
         #   - { top: 700, bottom: 345 }
 
@@ -92,7 +121,7 @@ sections:
         digits_top: 2                 # Top number digits (e.g. 2, 3)
         digits_bottom: 1              # Bottom number digits (e.g. 1, 2)
         times_table: 3                # Target specific times table (e.g. 3) or list [2, 3, 4]
-        difficulty: "easy"            # Options: easy (MA1-FG-01), medium (MA2-MR-01), hard (MA3-MR-01)
+        difficulty: "easy"            # Options: easy (MA1-FG-01), medium (MA2-MR-01), hard/genius (MA3-MR-01)
 
       # Long Division (XLOP Long Division Scheme)
       long_division:
@@ -101,15 +130,32 @@ sections:
         digits_divisor: 1             # Number of digits in divisor
         times_table: 4                # Target specific divisor / times table (e.g. 4) or list [3, 4, 5]
         allow_remainder: false        # Allow non-zero remainders
-        difficulty: "medium"          # Options: easy/medium (MA2-MR-01), hard (MA3-MR-01)
+        difficulty: "medium"          # Options: easy (MA1-FG-01), medium (MA2-MR-02), hard/genius (MA3-MR-01)
 
 
   # ----------------------------------------------------------------------------
-  # SECTION 2: PATTERNS, SEQUENCES & ALGEBRA
+  # SECTION 3: FRACTIONS & DECIMALS
+  # Outcomes: MA2-PF-01, MA3-RQF-01
+  # Layout: list
+  # ----------------------------------------------------------------------------
+  - title: "3. Fractions & Decimals"
+    description: "Add, subtract or multiply fractions and simplify your answer."
+    layout: "list"
+    working_space: "2.5cm"
+    topics:
+
+      fractions:
+        count: 3
+        op_type: "addition"           # Options: "addition", "subtraction", "multiplication"
+        difficulty: "medium"          # Options: easy/medium (same denom: MA2-PF-01), hard (different denom/multiplication: MA3-RQF-01), genius (mixed numbers)
+
+
+  # ----------------------------------------------------------------------------
+  # SECTION 4: PATTERNS & ALGEBRA
   # Outcomes: MA1-RWN-01, MA2-MR-01, MA2-AR-02, MA3-MR-02
   # Layout: list (Enumerated full-width format)
   # ----------------------------------------------------------------------------
-  - title: "2. Patterns, Sequences & Algebraic Equations"
+  - title: "4. Patterns & Algebra"
     description: "Determine missing pattern terms and solve single- and multi-step equations."
     layout: "list"
     working_space: "2.5cm"
@@ -120,27 +166,21 @@ sections:
         count: 3
         step_range: [3, 12]           # Min and max step difference
         pattern_type: "arithmetic"    # Options: "arithmetic" (addition) or "geometric" (multiplication)
-        difficulty: "medium"          # Options: easy (MA1-RWN-01), medium (MA2-MR-01), hard (MA3-MR-02)
-
-      # Fractions & Decimal Operations
-      fractions:
-        count: 3
-        op_type: "addition"           # Options: "addition", "subtraction", "multiplication"
-        difficulty: "medium"          # Options: easy (same denom: MA2-PF-01), medium (diff denom), hard (multiplication: MA3-RQF-01)
+        difficulty: "medium"          # Options: easy (MA1-RWN-01), medium (MA2-MR-01), hard/genius (MA3-MR-02)
 
       # Algebra & Linear Equations
       algebra:
         count: 3
-        difficulty: "medium"          # Options: easy (x+a=b: MA2-AR-02), medium (ax+b=c), hard (ax+b=cx+d: MA3-MR-02)
+        difficulty: "medium"          # Options: easy (x+a=b: MA1-CSQ-01), medium (ax+b=c: MA2-AR-02), hard/genius (ax+b=cx+d: MA3-MR-02)
 
 
   # ----------------------------------------------------------------------------
-  # SECTION 3: MEASUREMENT, GEOMETRY & TIME
-  # Outcomes: MA1-NSM-02, MA2-NSM-02, MA3-NSM-02, MA2-GM-03, MA3-GM-03, MA2-GM-02
+  # SECTION 5: MEASUREMENT & TIME
+  # Outcomes: MA1-NSM-02, MA2-NSM-02, MA3-NSM-02, MA2-GM-02, MA3-GM-02
   # Layout: list (Full-width items with TikZ diagrams)
   # ----------------------------------------------------------------------------
-  - title: "3. Measurement, Geometry & Time Applications"
-    description: "Read analog clock faces, classify/calculate angles, and solve real-world measurement problems."
+  - title: "5. Measurement & Time"
+    description: "Read analog clock faces, and solve real-world duration and speed/distance problems."
     layout: "list"
     working_space: "3cm"
     topics:
@@ -148,32 +188,75 @@ sections:
       # Analog Clock Face Reading (TikZ Rendered Clocks)
       reading_time:
         count: 2
-        difficulty: "medium"          # Options: easy (hour/half-hour: MA1-NSM-02), medium (15/45/10 min: MA2-NSM-02), hard (5 min: MA3-NSM-02)
+        difficulty: "medium"          # Options: easy (hour/half-hour: MA1-NSM-02), medium (15/45/10 min: MA2-NSM-02), hard/genius (5 min/24hr: MA3-NSM-02)
         # fixed_questions:
         #   - { hour: 4, minute: 45 }
-
-      # Geometry & Angle Classification / Calculation (TikZ Angle Diagrams)
-      geometry_angles:
-        count: 2
-        difficulty: "medium"          # Options: easy/medium (Classify Acute/Right/Obtuse: MA2-GM-03), hard (Missing angle 180° - x: MA3-GM-03)
 
       # Date & Calendar Duration
       date_duration:
         count: 2
-        difficulty: "medium"          # Options: medium (MA2-NSM-02), hard (MA3-NSM-02)
+        difficulty: "medium"          # Options: easy/medium (MA2-NSM-02), hard/genius (MA3-NSM-02)
 
       # Speed, Distance & Time Word Problems
       speed_distance:
         count: 2
-        difficulty: "medium"          # Options: medium (MA2-GM-02), hard (MA3-GM-02)
+        difficulty: "medium"          # Options: easy/medium (MA2-GM-02), hard/genius (MA3-GM-02, multi-leg journeys)
 
 
   # ----------------------------------------------------------------------------
-  # SECTION 4: MULTIPLE CHOICE QUIZ
-  # Outcomes: MA2-RN-01, MA2-2DS-01, MA3-RN-01
+  # SECTION 6: GEOMETRY & SHAPE
+  # Outcomes: MA2-GM-03, MA3-GM-03, MA1-2DS-01, MA2-2DS-01, MA3-2DS-01, MA1-3DS-01, MA2-3DS-01, MA3-3DS-01
+  # Layout: list (TikZ angle diagrams & shape/property questions)
+  # ----------------------------------------------------------------------------
+  - title: "6. Geometry & Shape"
+    description: "Classify angles, name 2D/3D shapes, and calculate missing angles or capacities."
+    layout: "list"
+    working_space: "3cm"
+    topics:
+
+      # Geometry & Angle Classification / Calculation (TikZ Angle Diagrams)
+      geometry_angles:
+        count: 2
+        difficulty: "medium"          # Options: easy/medium (Classify Acute/Right/Obtuse: MA2-GM-03), hard/genius (Missing angle 180° - x, triangle angles: MA3-GM-03)
+
+      # 2D Shapes & Spatial Structure
+      2d_shapes:
+        count: 3
+        difficulty: "medium"          # Options: easy (MA1-2DS-01), medium (MA2-2DS-01), hard/genius (MA3-2DS-01, composite area)
+
+      # 3D Objects & Nets
+      3d_objects:
+        count: 3
+        difficulty: "medium"          # Options: easy (MA1-3DS-01), medium (MA2-3DS-01), hard/genius (MA3-3DS-01, capacity in litres)
+
+
+  # ----------------------------------------------------------------------------
+  # SECTION 7: STATISTICS & PROBABILITY
+  # Outcomes: MA1-DATA-01, MA2-DATA-01, MA3-DATA-01, MA1-CHAN-01, MA2-CHAN-01, MA3-CHAN-01
+  # Layout: list
+  # ----------------------------------------------------------------------------
+  - title: "7. Statistics & Probability"
+    description: "Interpret simple data displays and reason about the likelihood of everyday events."
+    layout: "list"
+    working_space: "2.5cm"
+    topics:
+
+      # Data & Graphing
+      data:
+        count: 3
+        difficulty: "medium"          # Options: easy (MA1-DATA-01), medium (MA2-DATA-01), hard/genius (MA3-DATA-01, mean/median)
+
+      # Chance & Probability
+      chance:
+        count: 3
+        difficulty: "medium"          # Options: easy (MA1-CHAN-01), medium (MA2-CHAN-01), hard/genius (MA3-CHAN-01, fractional probability)
+
+
+  # ----------------------------------------------------------------------------
+  # SECTION 8: GENERAL MATHEMATICS QUIZ
   # Layout: list (Multiple Choice A, B, C, D format)
   # ----------------------------------------------------------------------------
-  - title: "4. General Mathematics Quiz"
+  - title: "8. General Mathematics Quiz"
     description: "Select the correct answer from the given options."
     layout: "list"
     working_space: "1.5cm"

@@ -1,74 +1,74 @@
-Key,Stage,Focus Area,Capability
-MAE-RWN-01,ES1,Representing numbers,demonstrates an understanding of how whole numbers indicate quantity
-MAE-RWN-02,ES1,Representing numbers,reads numerals and represents whole numbers to at least 20
-MA1-RWN-01,1,Representing numbers,"applies an understanding of place value and the role of zero to read, write and order two- and three-digit numbers"
-MA1-RWN-02,1,Representing numbers,"reasons about representations of whole numbers to 1000, partitioning numbers to use and record quantity values"
-MA2-RN-01,2,Representing numbers,applies an understanding of place value and the role of zero to represent numbers to at least tens of thousands
-MA2-RN-02,2,Representing numbers,represents and compares decimals up to 2 decimal places using place value
-MA3-RN-01,3,Representing numbers,applies an understanding of place value and the role of zero to represent the properties of numbers
-MA3-RN-02,3,Representing numbers,compares and orders decimals up to 3 decimal places
-MA3-RN-03,3,Representing numbers,"determines percentages of quantities, and finds equivalent fractions and decimals for benchmark percentage values"
-MAE-CSQ-01,ES1,Combining and separating quantities,"reasons about number relations to model addition and subtraction by combining and separating, and comparing collections"
-MAE-CSQ-02,ES1,Combining and separating quantities,"represents the relations between the parts that form the whole, with numbers up to 10"
-MA1-CSQ-01,1,Combining and separating quantities,uses number bonds and the relationship between addition and subtraction to solve problems involving partitioning
-MAE-FG-01,ES1,Forming groups,"recognises, describes and continues repeating patterns"
-MAE-FG-02,ES1,Forming groups,forms equal groups by sharing and counting collections of objects
-MA1-FG-01,1,Forming groups,"uses the structure of equal groups to solve multiplication problems, and shares or groups to solve division problems"
-MA2-AR-01,2,Additive relations,selects and uses mental and written strategies for addition and subtraction involving 2- and 3-digit numbers
-MA2-AR-02,2,Additive relations,completes number sentences involving addition and subtraction by finding missing values
-MA3-AR-01,3,Additive relations,selects and applies appropriate strategies to solve addition and subtraction problems
-MA2-MR-01,2,Multiplicative relations,represents and uses the structure of multiplicative relations to 10 × 10 to solve problems
-MA2-MR-02,2,Multiplicative relations,completes number sentences involving multiplication and division by finding missing values
-MA3-MR-01,3,Multiplicative relations,selects and applies appropriate strategies to solve multiplication and division problems
-MA3-MR-02,3,Multiplicative relations,"constructs and completes number sentences involving multiplicative relations, applying the order of operations to calculations"
-MA2-PF-01,2,Fractions,"represents and compares halves, quarters, thirds and fifths as lengths on a number line and their related fractions formed by halving (eighths, sixths and tenths)"
-MA3-RQF-01,3,Fractions,"compares and orders fractions with denominators of 2, 3, 4, 5, 6, 8 and 10"
-MA3-RQF-02,3,Fractions,"determines 1/2, 1/4, 1/5 and 1/10 of measures and quantities"
-MAE-GM-01,ES1,Geometric measure,describes position and gives and follows simple directions
-MAE-GM-02,ES1,Geometric measure,describes and compares lengths
-MAE-GM-03,ES1,Geometric measure,identifies half the length and the halfway point
-MA1-GM-01,1,Geometric measure,represents and describes the positions of objects in familiar locations
-MA1-GM-02,1,Geometric measure,"measures, records, compares and estimates lengths and distances using uniform informal units, as well as metres and centimetres"
-MA1-GM-03,1,Geometric measure,"creates and recognises halves, quarters and eighths as part measures of a whole length"
-MA2-GM-01,2,Geometric measure,uses grid maps and directional language to locate positions and follow routes
-MA2-GM-02,2,Geometric measure,"measures and estimates lengths in metres, centimetres and millimetres"
-MA2-GM-03,2,Geometric measure,identifies angles and classifies them by comparing to a right angle
-MA3-GM-01,3,Geometric measure,locates and describes points on a coordinate plane
-MA3-GM-02,3,Geometric measure,selects and uses the appropriate unit and device to measure lengths and distances including perimeters
-MA3-GM-03,3,Geometric measure,"measures and constructs angles, and identifies the relationships between angles on a straight line and angles at a point"
-MAE-2DS-01,ES1,Two-dimensional (2D) spatial structure,"sorts, describes, names and makes two-dimensional shapes, including triangles, circles, squares and rectangles"
-MAE-2DS-02,ES1,Two-dimensional (2D) spatial structure,describes and compares areas of similar shapes
-MA1-2DS-01,1,Two-dimensional (2D) spatial structure,"recognises, describes and represents shapes including quadrilaterals and other common polygons"
-MA1-2DS-02,1,Two-dimensional (2D) spatial structure,measures and compares areas using uniform informal units in rows and columns
-MA2-2DS-01,2,Two-dimensional (2D) spatial structure,compares two-dimensional shapes and describes their features
-MA2-2DS-02,2,Two-dimensional (2D) spatial structure,performs transformations by combining and splitting two-dimensional shapes
-MA2-2DS-03,2,Two-dimensional (2D) spatial structure,"estimates, measures and compares areas using square centimetres and square metres"
-MA3-2DS-01,3,Two-dimensional (2D) spatial structure,"investigates and classifies two-dimensional shapes, including triangles and quadrilaterals based on their properties"
-MA3-2DS-02,3,Two-dimensional (2D) spatial structure,"selects and uses the appropriate unit to calculate areas, including areas of rectangles"
-MA3-2DS-03,3,Two-dimensional (2D) spatial structure,"combines, splits and rearranges shapes to determine the area of parallelograms and triangles"
-MAE-3DS-01,ES1,Three-dimensional (3D) spatial structure,"manipulates, describes and sorts three-dimensional objects"
-MAE-3DS-02,ES1,Three-dimensional (3D) spatial structure,describes and compares volumes
-MA1-3DS-01,1,Three-dimensional (3D) spatial structure,"recognises, describes and represents familiar three-dimensional objects"
-MA1-3DS-02,1,Three-dimensional (3D) spatial structure,"measures, records, compares and estimates internal volumes (capacities) and volumes using uniform informal units"
-MA2-3DS-01,2,Three-dimensional (3D) spatial structure,makes and sketches models and nets of three-dimensional objects including prisms and pyramids
-MA2-3DS-02,2,Three-dimensional (3D) spatial structure,"estimates, measures and compares capacities (internal volumes) using litres, millilitres and volumes using cubic centimetres"
-MA3-3DS-01,3,Three-dimensional (3D) spatial structure,"visualises, sketches and constructs three-dimensional objects, including prisms and pyramids, making connections to two-dimensional representations"
-MA3-3DS-02,3,Three-dimensional (3D) spatial structure,"selects and uses the appropriate unit to estimate, measure and calculate volumes and capacities"
-MAE-NSM-01,ES1,Non-spatial measure,describes and compares the masses of objects
-MAE-NSM-02,ES1,Non-spatial measure,sequences events and reads hour time on clocks
-MA1-NSM-01,1,Non-spatial measure,"measures, records, compares and estimates the masses of objects using uniform informal units"
-MA1-NSM-02,1,Non-spatial measure,"describes, compares and orders durations of events, and reads half- and quarter-hour time"
-MA2-NSM-01,2,Non-spatial measure,"estimates, measures and compares the masses of objects using kilograms and grams"
-MA2-NSM-02,2,Non-spatial measure,"represents and interprets analog and digital time in hours, minutes and seconds"
-MA3-NSM-01,3,Non-spatial measure,selects and uses the appropriate unit and device to measure the masses of objects
-MA3-NSM-02,3,Non-spatial measure,"measures and compares duration, using 12- and 24-hour time and am and pm notation"
-MAE-DATA-01,ES1,Data,contributes to collecting data and interprets data displays made from objects
-MA1-DATA-01,1,Data,"gathers and organises data, displays data in lists, tables and picture graphs"
-MA1-DATA-02,1,Data,reasons about representations of data to describe and interpret the results
-MA2-DATA-01,2,Data,collects discrete data and constructs graphs using a given scale
-MA2-DATA-02,2,Data,"interprets data in tables, dot plots and column graphs"
-MA3-DATA-01,3,Data,constructs graphs using many-to-one scales
-MA3-DATA-02,3,Data,"interprets data displays, including timelines and line graphs"
-MA1-CHAN-01,1,Chance,recognises and describes the element of chance in everyday events
-MA2-CHAN-01,2,Chance,records and compares the results of chance experiments
-MA3-CHAN-01,3,Chance,conducts chance experiments and quantifies the probability
+Key,Stage,Focus Area,Capability,Topic,Difficulty,Practice Area
+MAE-RWN-01,ES1,Representing numbers,demonstrates an understanding of how whole numbers indicate quantity,,,
+MAE-RWN-02,ES1,Representing numbers,reads numerals and represents whole numbers to at least 20,,,
+MA1-RWN-01,1,Representing numbers,"applies an understanding of place value and the role of zero to read, write and order two- and three-digit numbers","representing_numbers, sequences",easy,"Number & Place Value, Patterns & Algebra"
+MA1-RWN-02,1,Representing numbers,"reasons about representations of whole numbers to 1000, partitioning numbers to use and record quantity values",,,
+MA2-RN-01,2,Representing numbers,applies an understanding of place value and the role of zero to represent numbers to at least tens of thousands,representing_numbers,medium,Number & Place Value
+MA2-RN-02,2,Representing numbers,represents and compares decimals up to 2 decimal places using place value,,,
+MA3-RN-01,3,Representing numbers,applies an understanding of place value and the role of zero to represent the properties of numbers,representing_numbers,hard,Number & Place Value
+MA3-RN-02,3,Representing numbers,compares and orders decimals up to 3 decimal places,,,
+MA3-RN-03,3,Representing numbers,"determines percentages of quantities, and finds equivalent fractions and decimals for benchmark percentage values",representing_numbers,genius,Number & Place Value
+MAE-CSQ-01,ES1,Combining and separating quantities,"reasons about number relations to model addition and subtraction by combining and separating, and comparing collections",,,
+MAE-CSQ-02,ES1,Combining and separating quantities,"represents the relations between the parts that form the whole, with numbers up to 10",,,
+MA1-CSQ-01,1,Combining and separating quantities,uses number bonds and the relationship between addition and subtraction to solve problems involving partitioning,"vertical_addition, vertical_subtraction, algebra",easy,"Column Arithmetic, Patterns & Algebra"
+MAE-FG-01,ES1,Forming groups,"recognises, describes and continues repeating patterns",,,
+MAE-FG-02,ES1,Forming groups,forms equal groups by sharing and counting collections of objects,,,
+MA1-FG-01,1,Forming groups,"uses the structure of equal groups to solve multiplication problems, and shares or groups to solve division problems","vertical_multiplication, long_division",easy,Column Arithmetic
+MA2-AR-01,2,Additive relations,selects and uses mental and written strategies for addition and subtraction involving 2- and 3-digit numbers,"vertical_addition, vertical_subtraction",medium,Column Arithmetic
+MA2-AR-02,2,Additive relations,completes number sentences involving addition and subtraction by finding missing values,algebra,medium,Patterns & Algebra
+MA3-AR-01,3,Additive relations,selects and applies appropriate strategies to solve addition and subtraction problems,"vertical_addition, vertical_subtraction","hard, genius",Column Arithmetic
+MA2-MR-01,2,Multiplicative relations,represents and uses the structure of multiplicative relations to 10 × 10 to solve problems,"vertical_multiplication, sequences",medium,"Column Arithmetic, Patterns & Algebra"
+MA2-MR-02,2,Multiplicative relations,completes number sentences involving multiplication and division by finding missing values,long_division,medium,Column Arithmetic
+MA3-MR-01,3,Multiplicative relations,selects and applies appropriate strategies to solve multiplication and division problems,"vertical_multiplication, long_division","hard, genius",Column Arithmetic
+MA3-MR-02,3,Multiplicative relations,"constructs and completes number sentences involving multiplicative relations, applying the order of operations to calculations","algebra, sequences","hard, genius",Patterns & Algebra
+MA2-PF-01,2,Fractions,"represents and compares halves, quarters, thirds and fifths as lengths on a number line and their related fractions formed by halving (eighths, sixths and tenths)",fractions,"easy, medium",Fractions & Decimals
+MA3-RQF-01,3,Fractions,"compares and orders fractions with denominators of 2, 3, 4, 5, 6, 8 and 10",fractions,"hard, genius",Fractions & Decimals
+MA3-RQF-02,3,Fractions,"determines 1/2, 1/4, 1/5 and 1/10 of measures and quantities",,,
+MAE-GM-01,ES1,Geometric measure,describes position and gives and follows simple directions,,,
+MAE-GM-02,ES1,Geometric measure,describes and compares lengths,,,
+MAE-GM-03,ES1,Geometric measure,identifies half the length and the halfway point,,,
+MA1-GM-01,1,Geometric measure,represents and describes the positions of objects in familiar locations,,,
+MA1-GM-02,1,Geometric measure,"measures, records, compares and estimates lengths and distances using uniform informal units, as well as metres and centimetres",,,
+MA1-GM-03,1,Geometric measure,"creates and recognises halves, quarters and eighths as part measures of a whole length",,,
+MA2-GM-01,2,Geometric measure,uses grid maps and directional language to locate positions and follow routes,,,
+MA2-GM-02,2,Geometric measure,"measures and estimates lengths in metres, centimetres and millimetres",speed_distance,"easy, medium",Measurement & Time
+MA2-GM-03,2,Geometric measure,identifies angles and classifies them by comparing to a right angle,geometry_angles,"easy, medium",Geometry & Shape
+MA3-GM-01,3,Geometric measure,locates and describes points on a coordinate plane,,,
+MA3-GM-02,3,Geometric measure,selects and uses the appropriate unit and device to measure lengths and distances including perimeters,speed_distance,"hard, genius",Measurement & Time
+MA3-GM-03,3,Geometric measure,"measures and constructs angles, and identifies the relationships between angles on a straight line and angles at a point",geometry_angles,"hard, genius",Geometry & Shape
+MAE-2DS-01,ES1,Two-dimensional (2D) spatial structure,"sorts, describes, names and makes two-dimensional shapes, including triangles, circles, squares and rectangles",,,
+MAE-2DS-02,ES1,Two-dimensional (2D) spatial structure,describes and compares areas of similar shapes,,,
+MA1-2DS-01,1,Two-dimensional (2D) spatial structure,"recognises, describes and represents shapes including quadrilaterals and other common polygons",2d_shapes,easy,Geometry & Shape
+MA1-2DS-02,1,Two-dimensional (2D) spatial structure,measures and compares areas using uniform informal units in rows and columns,,,
+MA2-2DS-01,2,Two-dimensional (2D) spatial structure,compares two-dimensional shapes and describes their features,2d_shapes,medium,Geometry & Shape
+MA2-2DS-02,2,Two-dimensional (2D) spatial structure,performs transformations by combining and splitting two-dimensional shapes,,,
+MA2-2DS-03,2,Two-dimensional (2D) spatial structure,"estimates, measures and compares areas using square centimetres and square metres",,,
+MA3-2DS-01,3,Two-dimensional (2D) spatial structure,"investigates and classifies two-dimensional shapes, including triangles and quadrilaterals based on their properties",2d_shapes,"hard, genius",Geometry & Shape
+MA3-2DS-02,3,Two-dimensional (2D) spatial structure,"selects and uses the appropriate unit to calculate areas, including areas of rectangles",,,
+MA3-2DS-03,3,Two-dimensional (2D) spatial structure,"combines, splits and rearranges shapes to determine the area of parallelograms and triangles",,,
+MAE-3DS-01,ES1,Three-dimensional (3D) spatial structure,"manipulates, describes and sorts three-dimensional objects",,,
+MAE-3DS-02,ES1,Three-dimensional (3D) spatial structure,describes and compares volumes,,,
+MA1-3DS-01,1,Three-dimensional (3D) spatial structure,"recognises, describes and represents familiar three-dimensional objects",3d_objects,easy,Geometry & Shape
+MA1-3DS-02,1,Three-dimensional (3D) spatial structure,"measures, records, compares and estimates internal volumes (capacities) and volumes using uniform informal units",,,
+MA2-3DS-01,2,Three-dimensional (3D) spatial structure,makes and sketches models and nets of three-dimensional objects including prisms and pyramids,3d_objects,medium,Geometry & Shape
+MA2-3DS-02,2,Three-dimensional (3D) spatial structure,"estimates, measures and compares capacities (internal volumes) using litres, millilitres and volumes using cubic centimetres",,,
+MA3-3DS-01,3,Three-dimensional (3D) spatial structure,"visualises, sketches and constructs three-dimensional objects, including prisms and pyramids, making connections to two-dimensional representations",3d_objects,"hard, genius",Geometry & Shape
+MA3-3DS-02,3,Three-dimensional (3D) spatial structure,"selects and uses the appropriate unit to estimate, measure and calculate volumes and capacities",,,
+MAE-NSM-01,ES1,Non-spatial measure,describes and compares the masses of objects,,,
+MAE-NSM-02,ES1,Non-spatial measure,sequences events and reads hour time on clocks,,,
+MA1-NSM-01,1,Non-spatial measure,"measures, records, compares and estimates the masses of objects using uniform informal units",,,
+MA1-NSM-02,1,Non-spatial measure,"describes, compares and orders durations of events, and reads half- and quarter-hour time",reading_time,easy,Measurement & Time
+MA2-NSM-01,2,Non-spatial measure,"estimates, measures and compares the masses of objects using kilograms and grams",,,
+MA2-NSM-02,2,Non-spatial measure,"represents and interprets analog and digital time in hours, minutes and seconds","reading_time, date_duration",medium,Measurement & Time
+MA3-NSM-01,3,Non-spatial measure,selects and uses the appropriate unit and device to measure the masses of objects,,,
+MA3-NSM-02,3,Non-spatial measure,"measures and compares duration, using 12- and 24-hour time and am and pm notation","reading_time, date_duration","hard, genius",Measurement & Time
+MAE-DATA-01,ES1,Data,contributes to collecting data and interprets data displays made from objects,,,
+MA1-DATA-01,1,Data,"gathers and organises data, displays data in lists, tables and picture graphs",data,easy,Statistics & Probability
+MA1-DATA-02,1,Data,reasons about representations of data to describe and interpret the results,,,
+MA2-DATA-01,2,Data,collects discrete data and constructs graphs using a given scale,data,medium,Statistics & Probability
+MA2-DATA-02,2,Data,"interprets data in tables, dot plots and column graphs",,,
+MA3-DATA-01,3,Data,constructs graphs using many-to-one scales,data,"hard, genius",Statistics & Probability
+MA3-DATA-02,3,Data,"interprets data displays, including timelines and line graphs",,,
+MA1-CHAN-01,1,Chance,recognises and describes the element of chance in everyday events,chance,easy,Statistics & Probability
+MA2-CHAN-01,2,Chance,records and compares the results of chance experiments,chance,medium,Statistics & Probability
+MA3-CHAN-01,3,Chance,conducts chance experiments and quantifies the probability,chance,"hard, genius",Statistics & Probability

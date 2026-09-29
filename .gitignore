@@ -1,1 +1,4 @@
 output/
+venv/
+__pycache__/
+results/history.jsonl
