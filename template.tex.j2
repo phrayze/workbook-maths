@@ -1,0 +1,83 @@
+\documentclass[\VAR{font_size | default('12pt')}, a4paper]{extarticle}
+\usepackage[margin=2cm]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{xlop}          % Column arithmetic
+\usepackage{enumitem}      % Lists
+\usepackage{tikz}          % Clock faces and angle diagrams
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+
+\setlength{\headheight}{22pt}
+\pagestyle{fancy}
+\fancyhead[L]{\VAR{header_left}}
+\fancyhead[R]{Name: \underline{\hspace{3.5cm}} Date: \underline{\hspace{2.5cm}}}
+\fancyfoot[C]{Page \thepage}
+
+\begin{document}
+
+\begin{center}
+    {\LARGE \bfseries \VAR{title}} \\[0.5em]
+    \BLOCK{ if subtitle }
+    {\small \VAR{subtitle}}
+    \BLOCK{ endif }
+\end{center}
+\vspace{1em}
+
+\BLOCK{ for sec in sections }
+\section*{\VAR{sec.title}}
+\BLOCK{ if sec.description }
+\noindent \textit{\VAR{sec.description}}\\[1em]
+\BLOCK{ endif }
+
+\BLOCK{ if sec.layout == 'grid_3col' }
+\noindent%
+\BLOCK{ for q in sec.questions }%
+\begin{minipage}[t]{0.3\textwidth}
+    \centering
+    \textbf{Q\VAR{q.id}:}\\[0.5em]
+    \VAR{q.prompt_tex}
+    \vspace{\VAR{sec.working_space}}
+\end{minipage}%
+\BLOCK{ if loop.index % 3 == 0 }
+
+\vspace{1.5em}
+\noindent%
+\BLOCK{ else }%
+\hfill%
+\BLOCK{ endif }%
+\BLOCK{ endfor }
+
+\vspace{2em}
+
+\BLOCK{ else }
+\begin{enumerate}[label=, leftmargin=2em]
+\BLOCK{ for q in sec.questions }
+    \item[\textbf{Q\VAR{q.id}:}] \VAR{q.prompt_tex}
+    \vspace{\VAR{sec.working_space}}
+\BLOCK{ endfor }
+\end{enumerate}
+\BLOCK{ endif }
+
+\BLOCK{ endfor }
+
+\BLOCK{ if include_solutions }
+\newpage
+% ANSWER KEY PAGE
+\fancyhead[L]{\VAR{header_left} -- Worked Solutions}
+
+\begin{center}
+    {\LARGE \bfseries Answer Key \& Solutions Guide}
+\end{center}
+\vspace{1em}
+
+\BLOCK{ for q in all_questions }
+\begin{tcolorbox}[colback=gray!5!white,colframe=gray!75!black,title=Question \VAR{q.id} -- \VAR{q.section} \BLOCK{ if q.outcome_code }[\VAR{q.outcome_code}]\BLOCK{ endif }]
+    \BLOCK{ if q.capability }
+    {\small \textbf{NESA Outcome Capability:} \VAR{q.capability}}\\[0.5em]
+    \BLOCK{ endif }
+    \textbf{Solution:} \VAR{q.solution_tex}
+\end{tcolorbox}
+\BLOCK{ endfor }
+\BLOCK{ endif }
+
+\end{document}

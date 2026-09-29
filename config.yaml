@@ -1,0 +1,99 @@
+# ==============================================================================
+# Mathematics Workbook Configuration (config.yaml)
+# ==============================================================================
+
+title: "Stage 1 Primary Mathematics Workbook"
+subtitle: "Dynamic Practice & Problem Solving Sheet"
+stage: 1
+header_left: "Maths"
+#seed: 42 # Integer for deterministic reproducible workbooks, or null for random numbers
+include_solutions: true # Set to true to append the Answer Key page at the end
+font_size: "17pt" # Document base font size (e.g. 10pt, 11pt, 12pt, 14pt, 17pt, 20pt)
+working_space: "2.5cm" # Default whitespace for workings under questions (e.g. 2.5cm, 3cm, 4cm)
+
+# ------------------------------------------------------------------------------
+# Workbook Sections & Topics
+# ------------------------------------------------------------------------------
+sections:
+  - title: "1. Column Arithmetic"
+    description: "Calculate each vertical problem carefully. Show regrouping/carrying digits in your workings."
+    layout: "grid_3col" # Options: grid_3col (for 3-column layout) or list
+#    working_space: "3.5cm" # Ample space for vertical working out
+    topics:
+      vertical_addition:
+        count: 6
+        digits: 3
+        allow_carrying: true
+        difficulty: "medium"
+
+      vertical_subtraction:
+        count: 6
+        digits: 3
+        allow_borrowing: true
+        difficulty: "medium"
+
+      vertical_multiplication:
+        count: 6
+        digits_top: 2
+        times_table: 3 # Target 3 times table (or list of tables, e.g. [2, 3, 4])
+        difficulty: "easy"
+
+  - title: "2. Division & Number Patterns"
+    description: "Solve division problems and find missing terms in sequences."
+    layout: "list"
+    working_space: "2.5cm"
+    topics:
+      long_division:
+        count: 4
+        times_table: 4 # Target 4 times table divisor (e.g. 4 times table)
+        difficulty: "medium"
+        allow_remainder: false
+
+      sequences:
+        count: 3
+        step_range: [3, 12]
+        pattern_type: "arithmetic"
+        difficulty: "medium"
+
+  - title: "3. Fractions & Basic Algebra"
+    description: "Solve fraction operations and basic single-variable equations."
+    layout: "list"
+    working_space: "2.5cm"
+    topics:
+      fractions:
+        count: 3
+        difficulty: "medium"
+
+      algebra:
+        count: 3
+        difficulty: "medium"
+
+  - title: "4. Measurement, Geometry & Word Problems"
+    description: "Answer the following time, geometry, and real-world math application questions."
+    layout: "list"
+    working_space: "3cm"
+    topics:
+      reading_time:
+        count: 2
+        difficulty: "medium"
+
+      geometry_angles:
+        count: 2
+        difficulty: "medium"
+
+      date_duration:
+        count: 1
+        difficulty: "medium"
+
+      speed_distance:
+        count: 1
+        difficulty: "medium"
+
+  - title: "5. General Mathematics Quiz"
+    description: "Select the correct answer from the given options."
+    layout: "list"
+    working_space: "1.5cm"
+    topics:
+      multiple_choice:
+        count: 4
+        difficulty: "medium"

@@ -1,0 +1,189 @@
+# ==============================================================================
+# Master Configuration Template (config-template.yaml)
+# NSW Mathematics Curriculum (NESA 2022) Aligned Practice Sheet Pipeline
+# ==============================================================================
+#
+# ------------------------------------------------------------------------------
+# CURRICULUM ALIGNMENT & DIFFICULTY GRADING KEY
+# ------------------------------------------------------------------------------
+# Difficulty levels correspond to NESA Stage expectations:
+#
+# 🟢 EASY (Stage 1 / Early Stage 2 Foundation):
+#    - Focus: Single to 2-digit numbers, no regrouping/carrying/borrowing.
+#    - Outcomes: 
+#      • MA1-CSQ-01 (Addition & Subtraction to 20 / 2-digit basic)
+#      • MA1-FG-01  (Equal groups, skip counting by 2, 5, 10)
+#      • MA1-RWN-01 (Whole number patterns)
+#      • MA1-NSM-02 (Reading clocks to half-hour & quarter-hour)
+#
+# 🟡 MEDIUM (Stage 2 Core Practice - Years 3–4):
+#    - Focus: 2-3 digit numbers with regrouping/carrying/borrowing, times tables up to 10x10.
+#    - Outcomes:
+#      • MA2-AR-01  (Mental and written vertical strategies for addition/subtraction)
+#      • MA2-AR-02  (Completing number sentences & 2-step linear equations)
+#      • MA2-MR-01  (Multiplicative relations to 10x10, long division)
+#      • MA2-PF-01  (Fractions: halves, thirds, quarters, fifths)
+#      • MA2-GM-03  (Classifying angles relative to right angles)
+#      • MA2-NSM-02 (Analog & digital time to 5-minute intervals)
+#
+# 🔴 HARD (Stage 3 Extension - Years 5–6):
+#    - Focus: 3-4 digit vertical operations, long division with remainders, geometric proofs.
+#    - Outcomes:
+#      • MA3-AR-01  (Complex multidigit strategies & multistep word problems)
+#      • MA3-MR-01  (3-4 digit multiplication & division with remainders)
+#      • MA3-MR-02  (Equations with variables on both sides, order of operations)
+#      • MA3-RQF-01 (Fractions with related/unrelated denominators & multiplication)
+#      • MA3-GM-03  (Calculating missing angles on a straight line: 180° - x)
+#      • MA3-NSM-02 (Elapsed time duration & 12/24-hour time conversion)
+#
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Global Workbook Options
+# ------------------------------------------------------------------------------
+title: "Primary Mathematics Master Practice Workbook"
+subtitle: "NSW Curriculum Aligned (NESA 2022 Stage 1, 2 & 3)"
+stage: 2                              # Curriculum Stage: 1 (Y1-2), 2 (Y3-4), 3 (Y5-6)
+header_left: "NSW Primary Mathematics Practice"
+seed: 42                              # Integer for reproducible random questions, or null for random
+include_solutions: true               # Set true to append Worked Solutions & Answer Key page
+font_size: "14pt"                     # Document base font size (Supported: 8pt, 9pt, 10pt, 11pt, 12pt, 14pt, 17pt, 20pt)
+working_space: "3cm"                  # Global default vertical workspace under questions (e.g. 2.5cm, 3cm, 4cm)
+
+# ------------------------------------------------------------------------------
+# 2. Section & Topic Configurations
+# ------------------------------------------------------------------------------
+sections:
+
+  # ----------------------------------------------------------------------------
+  # SECTION 1: COLUMN ARITHMETIC
+  # Outcomes: MA1-CSQ-01, MA2-AR-01, MA3-AR-01, MA2-MR-01, MA3-MR-01
+  # Layout: grid_3col (Presents problems side-by-side in 3 columns)
+  # Answers: Omitted on student page (uses phantom styling), printed in Answer Key
+  # ----------------------------------------------------------------------------
+  - title: "1. Column Arithmetic (Addition, Subtraction, Multiplication & Long Division)"
+    description: "Solve each vertical problem carefully in the space provided. Show regrouping/carrying digits where needed."
+    layout: "grid_3col"
+    working_space: "3.5cm"            # Extra space for vertical calculations
+    topics:
+
+      # Vertical Addition (XLOP Column Addition)
+      vertical_addition:
+        count: 6                      # Number of questions to generate
+        digits: 3                     # Number of digits per operand (2, 3, 4)
+        allow_carrying: true          # Enable carrying/regrouping across columns
+        difficulty: "medium"          # Options: easy (MA1-CSQ-01), medium (MA2-AR-01), hard (MA3-AR-01)
+        # Optional Fixed Questions Override:
+        # fixed_questions:
+        #   - { top: 458, bottom: 279 }
+
+      # Vertical Subtraction (XLOP Column Subtraction)
+      vertical_subtraction:
+        count: 6
+        digits: 3
+        allow_borrowing: true         # Enable borrowing/regrouping across columns
+        difficulty: "medium"          # Options: easy (MA1-CSQ-01), medium (MA2-AR-01), hard (MA3-AR-01)
+        # fixed_questions:
+        #   - { top: 700, bottom: 345 }
+
+      # Vertical Multiplication (XLOP Column Multiplication)
+      vertical_multiplication:
+        count: 6
+        digits_top: 2                 # Top number digits (e.g. 2, 3)
+        digits_bottom: 1              # Bottom number digits (e.g. 1, 2)
+        times_table: 3                # Target specific times table (e.g. 3) or list [2, 3, 4]
+        difficulty: "easy"            # Options: easy (MA1-FG-01), medium (MA2-MR-01), hard (MA3-MR-01)
+
+      # Long Division (XLOP Long Division Scheme)
+      long_division:
+        count: 6
+        digits_dividend: 3            # Number of digits in dividend
+        digits_divisor: 1             # Number of digits in divisor
+        times_table: 4                # Target specific divisor / times table (e.g. 4) or list [3, 4, 5]
+        allow_remainder: false        # Allow non-zero remainders
+        difficulty: "medium"          # Options: easy/medium (MA2-MR-01), hard (MA3-MR-01)
+
+
+  # ----------------------------------------------------------------------------
+  # SECTION 2: PATTERNS, SEQUENCES & ALGEBRA
+  # Outcomes: MA1-RWN-01, MA2-MR-01, MA2-AR-02, MA3-MR-02
+  # Layout: list (Enumerated full-width format)
+  # ----------------------------------------------------------------------------
+  - title: "2. Patterns, Sequences & Algebraic Equations"
+    description: "Determine missing pattern terms and solve single- and multi-step equations."
+    layout: "list"
+    working_space: "2.5cm"
+    topics:
+
+      # Number Patterns & Sequences
+      sequences:
+        count: 3
+        step_range: [3, 12]           # Min and max step difference
+        pattern_type: "arithmetic"    # Options: "arithmetic" (addition) or "geometric" (multiplication)
+        difficulty: "medium"          # Options: easy (MA1-RWN-01), medium (MA2-MR-01), hard (MA3-MR-02)
+
+      # Fractions & Decimal Operations
+      fractions:
+        count: 3
+        op_type: "addition"           # Options: "addition", "subtraction", "multiplication"
+        difficulty: "medium"          # Options: easy (same denom: MA2-PF-01), medium (diff denom), hard (multiplication: MA3-RQF-01)
+
+      # Algebra & Linear Equations
+      algebra:
+        count: 3
+        difficulty: "medium"          # Options: easy (x+a=b: MA2-AR-02), medium (ax+b=c), hard (ax+b=cx+d: MA3-MR-02)
+
+
+  # ----------------------------------------------------------------------------
+  # SECTION 3: MEASUREMENT, GEOMETRY & TIME
+  # Outcomes: MA1-NSM-02, MA2-NSM-02, MA3-NSM-02, MA2-GM-03, MA3-GM-03, MA2-GM-02
+  # Layout: list (Full-width items with TikZ diagrams)
+  # ----------------------------------------------------------------------------
+  - title: "3. Measurement, Geometry & Time Applications"
+    description: "Read analog clock faces, classify/calculate angles, and solve real-world measurement problems."
+    layout: "list"
+    working_space: "3cm"
+    topics:
+
+      # Analog Clock Face Reading (TikZ Rendered Clocks)
+      reading_time:
+        count: 2
+        difficulty: "medium"          # Options: easy (hour/half-hour: MA1-NSM-02), medium (15/45/10 min: MA2-NSM-02), hard (5 min: MA3-NSM-02)
+        # fixed_questions:
+        #   - { hour: 4, minute: 45 }
+
+      # Geometry & Angle Classification / Calculation (TikZ Angle Diagrams)
+      geometry_angles:
+        count: 2
+        difficulty: "medium"          # Options: easy/medium (Classify Acute/Right/Obtuse: MA2-GM-03), hard (Missing angle 180° - x: MA3-GM-03)
+
+      # Date & Calendar Duration
+      date_duration:
+        count: 2
+        difficulty: "medium"          # Options: medium (MA2-NSM-02), hard (MA3-NSM-02)
+
+      # Speed, Distance & Time Word Problems
+      speed_distance:
+        count: 2
+        difficulty: "medium"          # Options: medium (MA2-GM-02), hard (MA3-GM-02)
+
+
+  # ----------------------------------------------------------------------------
+  # SECTION 4: MULTIPLE CHOICE QUIZ
+  # Outcomes: MA2-RN-01, MA2-2DS-01, MA3-RN-01
+  # Layout: list (Multiple Choice A, B, C, D format)
+  # ----------------------------------------------------------------------------
+  - title: "4. General Mathematics Quiz"
+    description: "Select the correct answer from the given options."
+    layout: "list"
+    working_space: "1.5cm"
+    topics:
+
+      # Multiple Choice Quiz Questions
+      multiple_choice:
+        count: 4
+        difficulty: "medium"          # Options: easy, medium, hard
+        # Optional Custom Prompt & Solution Override:
+        # fixed_questions:
+        #   - prompt: "Which polygon has 6 sides?\n\\begin{enumerate}[label=(\\Alph*)]\n  \\item Pentagon\n  \\item Hexagon\n  \\item Octagon\n  \\item Heptagon\n\\end{enumerate}"
+        #     solution: "\\textbf{Option (B)} -- A hexagon is a 6-sided polygon."
