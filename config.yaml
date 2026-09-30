@@ -7,6 +7,14 @@ include_solutions: true
 font_size: 14pt
 working_space: 2.5cm
 sections:
+- title: "Number & Place Value"
+  description: "Read, write, round and decompose whole numbers using place value."
+  layout: "list"
+  working_space: "2.5cm"
+  topics:
+    representing_numbers:
+      count: 2
+      difficulty: "easy"          # Options: easy (MA1-RWN-01), medium (MA2-RN-01), hard (MA3-RN-01), genius (MA3-RN-03, percentages)
 - title: Column Arithmetic
   description: ''
   layout: grid_3col
@@ -25,18 +33,19 @@ sections:
     vertical_multiplication:
       count: 3
       difficulty: easy
-      digits_top: 2
+      digits_top: 3
       digits_bottom: 1
       times_table:
       - 2
       - 3
-      - 4
     long_division:
-      count: 3
+      count: 1
       difficulty: easy
-      digits_dividend: 3
+      digits_dividend: 2
       digits_divisor: 1
-      times_table: 2
+      times_table:
+      - 2
+      - 3
       allow_remainder: false
 - title: Fractions & Decimals
   description: ''
@@ -54,7 +63,7 @@ sections:
   topics:
     sequences:
       count: 3
-      difficulty: medium
+      difficulty: easy
       step_range:
       - 1
       - 100
@@ -66,18 +75,29 @@ sections:
   topics:
     reading_time:
       count: 2
-      difficulty: medium
+      difficulty: easy
     date_duration:
       count: 2
-      difficulty: medium
-    speed_distance:
-      count: 2
-      difficulty: medium
+      difficulty: easy
 - title: Geometry & Shape
   description: ''
   layout: list
   working_space: 2.5cm
   topics:
-    geometry_angles:
+    2d_shapes:
       count: 2
+      difficulty: easy
+    3d_objects:
+      count: 2
+      difficulty: easy
+- title: Statistics & Probability
+  description: ''
+  layout: list
+  working_space: 2.5cm
+  topics:
+    data:
+      count: 2
+      difficulty: easy
+    chance:
+      count: 1
       difficulty: easy
