@@ -223,12 +223,13 @@ sections:
       2d_shapes:
         count: 3
         difficulty: "medium"          # Options: easy (MA1-2DS-01), medium (MA2-2DS-01), hard/genius (MA3-2DS-01, composite area)
+        shapes: ["triangle", "square", "rectangle", "parallelogram", "trapezium", "pentagon", "hexagon", "octagon"]        
 
       # 3D Objects & Nets
       3d_objects:
         count: 3
         difficulty: "medium"          # Options: easy (MA1-3DS-01), medium (MA2-3DS-01), hard/genius (MA3-3DS-01, capacity in litres)
-
+        objects_3d: ["cube", "cuboid", "cylinder", "cone", "sphere", "pyramid", "prism"]
 
   # ----------------------------------------------------------------------------
   # SECTION 7: STATISTICS & PROBABILITY
@@ -245,11 +246,15 @@ sections:
       data:
         count: 3
         difficulty: "medium"          # Options: easy (MA1-DATA-01), medium (MA2-DATA-01), hard/genius (MA3-DATA-01, mean/median)
+        data_types: ["survey", "table", "graph"]        
 
       # Chance & Probability
       chance:
         count: 3
         difficulty: "medium"          # Options: easy (MA1-CHAN-01), medium (MA2-CHAN-01), hard/genius (MA3-CHAN-01, fractional probability)
+        chance_types: ["marbles", "dice", "spinner"]
+
+        
 
 
   # ----------------------------------------------------------------------------
