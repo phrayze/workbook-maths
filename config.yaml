@@ -7,14 +7,14 @@ include_solutions: true
 font_size: 14pt
 working_space: 2.5cm
 sections:
-- title: "Number & Place Value"
-  description: "Read, write, round and decompose whole numbers using place value."
-  layout: "list"
-  working_space: "2.5cm"
+- title: Number & Place Value
+  description: ''
+  layout: list
+  working_space: 2.5cm
   topics:
     representing_numbers:
       count: 2
-      difficulty: "easy"          # Options: easy (MA1-RWN-01), medium (MA2-RN-01), hard (MA3-RN-01), genius (MA3-RN-03, percentages)
+      difficulty: easy
 - title: Column Arithmetic
   description: ''
   layout: grid_3col

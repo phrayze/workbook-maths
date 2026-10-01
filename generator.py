@@ -359,6 +359,48 @@ def _tikz_pyramid() -> str:
     )
 
 
+# Shape/object pools for 2d_shapes and 3d_objects, keyed by difficulty tier.
+# Each entry's last element is a tuple of lowercase aliases that a config's
+# `shapes` / `objects_3d` option can match against - see _select_shape_entry.
+EASY_2D_SHAPES = [
+    ("triangle", 3, ("triangle",)),
+    ("quadrilateral", 4, ("quadrilateral", "square", "rectangle")),
+    ("pentagon", 5, ("pentagon",)),
+    ("hexagon", 6, ("hexagon",)),
+    ("heptagon", 7, ("heptagon",)),
+    ("octagon", 8, ("octagon",)),
+]
+MEDIUM_2D_QUADS = [
+    ("Parallelogram", ("parallelogram",)),
+    ("Rhombus", ("rhombus",)),
+    ("Trapezium", ("trapezium", "trapezoid")),
+]
+HARD_2D_TRIANGLES = [
+    ("Equilateral", ("equilateral",)),
+    ("Isosceles", ("isosceles",)),
+    ("Scalene", ("scalene",)),
+]
+OBJ_3D_POOL = [
+    ("Cube", 6, "square", ("cube",)),
+    ("Rectangular Prism", 6, "rectangular", ("cuboid", "rectangular prism", "prism", "rectangularprism")),
+    ("Triangular Pyramid", 4, "triangular", ("pyramid", "triangular pyramid", "tetrahedron")),
+]
+
+
+def _select_shape_entry(pool: List[tuple], requested: Optional[List[str]]) -> tuple:
+    """Picks a random entry from `pool`, restricted to entries whose alias
+    list intersects `requested` (case-insensitive) when given. Falls back to
+    the full pool if `requested` is empty/None or matches nothing in this
+    tier - e.g. a 3d_objects config asking for a "cylinder" (not yet
+    implemented) still gets a valid question rather than an error."""
+    if requested:
+        wanted = {r.strip().lower() for r in requested if r and r.strip()}
+        filtered = [entry for entry in pool if wanted & set(entry[-1])]
+        if filtered:
+            return random.choice(filtered)
+    return random.choice(pool)
+
+
 # ------------------------------------------------------------------------
 # Calendar grid helper (Measurement & Time - date duration questions). Renders
 # real month(s) as a LaTeX table so the learner reads the day-count off the
@@ -773,7 +815,7 @@ class QuestionBank:
     def generate_sequence(
         self,
         step_range: List[int] = [2, 10],
-        pattern_type: str = "arithmetic",
+        pattern_type: Optional[str] = None,
         difficulty: str = "medium",
         fixed_questions: Optional[List[Dict[str, Any]]] = None,
         index: int = 0
@@ -797,16 +839,17 @@ class QuestionBank:
                     prompt_tex=fq["prompt"], solution_tex=fq["solution"], layout_hint="list"
                 )
 
-        if diff == "easy":
-            step = random.randint(2, 5)
-            start = random.randint(1, 10)
-            seq = [start + i * step for i in range(6)]
-            blank_idx = 3
-            ans = seq[blank_idx]
-            seq_display = [str(x) if i != blank_idx else "\\underline{\\hspace{1.5cm}}" for i, x in enumerate(seq)]
-            prompt = f"Find the missing number in the sequence:\\\\[0.5em] ${', '.join(seq_display)}$"
-            solution = f"Missing number is $\\mathbf{{{ans}}}$ (Rule: add ${step}$)"
-        elif diff == "genius":
+        # Per-tier fallback preserves each tier's historical default exactly
+        # when pattern_type isn't set in config (hard defaulted to geometric
+        # before pattern_type was wired up at all; everything else to
+        # arithmetic). Genius is a fixed two-step extension tier, like
+        # fractions' genius tier - not gated by pattern_type.
+        requested_pattern = (pattern_type or "").strip().lower()
+        valid_patterns = ("arithmetic", "geometric")
+        default_pattern = "geometric" if diff == "hard" else "arithmetic"
+        pattern = requested_pattern if requested_pattern in valid_patterns else default_pattern
+
+        if diff == "genius":
             # Alternating step rule e.g. +3, x2, +3, x2
             start = random.randint(2, 6)
             add_val = random.randint(2, 6)
@@ -822,24 +865,60 @@ class QuestionBank:
             seq_display = [str(x) if i != blank_idx else "\\underline{\\hspace{1.5cm}}" for i, x in enumerate(seq)]
             prompt = f"Find the missing number in the two-step pattern:\\\\[0.5em] ${', '.join(seq_display)}$"
             solution = f"Missing number is $\\mathbf{{{ans}}}$ (Rule: alternate $+{add_val}$ and $\\times {mult_val}$)"
+        elif diff == "easy":
+            if pattern == "geometric":
+                ratio = random.choice([2, 3])
+                start = random.randint(1, 4)
+                seq = [start * (ratio ** i) for i in range(5)]
+                blank_idx = 2
+                rule = f"multiply by ${ratio}$"
+            else:
+                step = random.randint(2, 5)
+                start = random.randint(1, 10)
+                seq = [start + i * step for i in range(6)]
+                blank_idx = 3
+                rule = f"add ${step}$"
+            ans = seq[blank_idx]
+            seq_display = [str(x) if i != blank_idx else "\\underline{\\hspace{1.5cm}}" for i, x in enumerate(seq)]
+            label = "geometric pattern" if pattern == "geometric" else "sequence"
+            prompt = f"Find the missing number in the {label}:\\\\[0.5em] ${', '.join(seq_display)}$"
+            solution = f"Missing number is $\\mathbf{{{ans}}}$ (Rule: {rule})"
         elif diff == "hard":
-            ratio = random.choice([2, 3, 4])
-            start = random.randint(1, 6)
-            seq = [start * (ratio ** i) for i in range(5)]
-            blank_idx = random.choice([1, 2, 3])
+            if pattern == "arithmetic":
+                step = random.randint(10, 50)
+                start = random.randint(5, 40)
+                seq = [start + i * step for i in range(6)]
+                blank_idx = random.choice([2, 3, 4])
+                rule = f"add ${step}$"
+            else:
+                ratio = random.choice([2, 3, 4])
+                start = random.randint(1, 6)
+                seq = [start * (ratio ** i) for i in range(5)]
+                blank_idx = random.choice([1, 2, 3])
+                rule = f"multiply by ${ratio}$"
             ans = seq[blank_idx]
             seq_display = [str(x) if i != blank_idx else "\\underline{\\hspace{1.5cm}}" for i, x in enumerate(seq)]
-            prompt = f"Find the missing number in the geometric pattern:\\\\[0.5em] ${', '.join(seq_display)}$"
-            solution = f"Missing number is $\\mathbf{{{ans}}}$ (Rule: multiply by ${ratio}$)"
-        else: # medium
-            step = random.randint(step_range[0], step_range[1])
-            start = random.randint(5, 25)
-            seq = [start + i * step for i in range(6)]
-            blank_idx = random.choice([2, 3, 4])
+            label = "sequence" if pattern == "arithmetic" else "geometric pattern"
+            prompt = f"Find the missing number in the {label}:\\\\[0.5em] ${', '.join(seq_display)}$"
+            solution = f"Missing number is $\\mathbf{{{ans}}}$ (Rule: {rule})"
+        else:  # medium
+            if pattern == "geometric":
+                ratio = random.choice([2, 3])
+                start = random.randint(1, 5)
+                seq = [start * (ratio ** i) for i in range(5)]
+                blank_idx = random.choice([1, 2, 3])
+                rule = f"multiply by ${ratio}$"
+            else:
+                step = random.randint(step_range[0], step_range[1])
+                start = random.randint(5, 25)
+                seq = [start + i * step for i in range(6)]
+                blank_idx = random.choice([2, 3, 4])
+                rule = f"add ${step}$"
             ans = seq[blank_idx]
             seq_display = [str(x) if i != blank_idx else "\\underline{\\hspace{1.5cm}}" for i, x in enumerate(seq)]
-            prompt = f"Find the missing number in the sequence:\\\\[0.5em] ${', '.join(seq_display)}$"
-            solution = f"Missing number is $\\mathbf{{{ans}}}$ (Rule: add ${step}$)"
+            label = "geometric pattern" if pattern == "geometric" else "sequence"
+            prompt = f"Find the missing number in the {label}:\\\\[0.5em] ${', '.join(seq_display)}$"
+            solution = f"Missing number is $\\mathbf{{{ans}}}$ (Rule: {rule})"
 
         return Question(
             section=meta["focus_area"], topic="sequences", outcome_code=code,
@@ -850,7 +929,7 @@ class QuestionBank:
     # 7. Fractions
     def generate_fractions(
         self,
-        op_type: str = "addition",
+        op_type: Optional[str] = None,
         difficulty: str = "medium",
         fixed_questions: Optional[List[Dict[str, Any]]] = None,
         index: int = 0
@@ -874,17 +953,42 @@ class QuestionBank:
                     prompt_tex=fq["prompt"], solution_tex=fq["solution"], layout_hint="list"
                 )
 
+        # Per-tier fallback preserves each tier's historical default exactly
+        # when op_type isn't set in config (hard defaulted to multiplication
+        # before op_type was wired up at all; everything else to addition).
+        requested_op = (op_type or "").strip().lower()
+        valid_ops = ("addition", "subtraction", "multiplication")
+        default_op = "multiplication" if diff == "hard" else "addition"
+        op = requested_op if requested_op in valid_ops else default_op
+
         if diff == "easy":
             denom = random.choice([4, 5, 6, 8, 10])
-            num1 = random.randint(1, denom - 2)
-            num2 = random.randint(1, denom - num1)
-            ans_num = num1 + num2
-            g = math.gcd(ans_num, denom)
-            prompt = f"Calculate: $\\dfrac{{{num1}}}{{{denom}}} + \\dfrac{{{num2}}}{{{denom}}} = \\underline{{\\hspace{{2.5cm}}}}$"
-            solution = f"$\\dfrac{{{num1}}}{{{denom}}} + \\dfrac{{{num2}}}{{{denom}}} = \\mathbf{{\\dfrac{{{ans_num//g}}}{{{denom//g}}}}}$"
-            answer_value = f"{ans_num//g}/{denom//g}"
+            if op == "multiplication":
+                num1, num2 = random.randint(1, denom - 1), random.randint(1, denom - 1)
+                ans_n, ans_d = num1 * num2, denom * denom
+                g = math.gcd(ans_n, ans_d)
+                prompt = f"Multiply: $\\dfrac{{{num1}}}{{{denom}}} \\times \\dfrac{{{num2}}}{{{denom}}} = \\underline{{\\hspace{{2.5cm}}}}$"
+                solution = f"$\\dfrac{{{num1} \\times {num2}}}{{{denom} \\times {denom}}} = \\mathbf{{\\dfrac{{{ans_n//g}}}{{{ans_d//g}}}}}$"
+                answer_value = f"{ans_n//g}/{ans_d//g}"
+            elif op == "subtraction":
+                num1 = random.randint(2, denom - 1)
+                num2 = random.randint(1, num1 - 1)
+                ans_num = num1 - num2
+                g = math.gcd(ans_num, denom)
+                prompt = f"Calculate: $\\dfrac{{{num1}}}{{{denom}}} - \\dfrac{{{num2}}}{{{denom}}} = \\underline{{\\hspace{{2.5cm}}}}$"
+                solution = f"$\\dfrac{{{num1}}}{{{denom}}} - \\dfrac{{{num2}}}{{{denom}}} = \\mathbf{{\\dfrac{{{ans_num//g}}}{{{denom//g}}}}}$"
+                answer_value = f"{ans_num//g}/{denom//g}"
+            else:  # addition
+                num1 = random.randint(1, denom - 2)
+                num2 = random.randint(1, denom - num1)
+                ans_num = num1 + num2
+                g = math.gcd(ans_num, denom)
+                prompt = f"Calculate: $\\dfrac{{{num1}}}{{{denom}}} + \\dfrac{{{num2}}}{{{denom}}} = \\underline{{\\hspace{{2.5cm}}}}$"
+                solution = f"$\\dfrac{{{num1}}}{{{denom}}} + \\dfrac{{{num2}}}{{{denom}}} = \\mathbf{{\\dfrac{{{ans_num//g}}}{{{denom//g}}}}}$"
+                answer_value = f"{ans_num//g}/{denom//g}"
         elif diff == "genius":
-            # Mixed numbers operations e.g. 2 (1/2) + 1 (3/4)
+            # Mixed numbers operations e.g. 2 (1/2) + 1 (3/4) - a fixed extension
+            # tier (not gated by op_type, like the other topics' genius tiers).
             w1, w2 = random.randint(1, 5), random.randint(1, 5)
             d1, d2 = random.choice([(2, 4), (3, 6), (2, 6), (3, 4), (2, 8), (4, 8), (3, 9)])
             n1, n2 = random.randint(1, d1 - 1), random.randint(1, d2 - 1)
@@ -898,24 +1002,57 @@ class QuestionBank:
             answer_value = f"{w_ans} {r_num}/{fin_den}" if r_num > 0 else str(w_ans)
         elif diff == "hard":
             d1, d2 = random.choice([(3, 4), (2, 5), (3, 5), (4, 5)])
-            n1, n2 = random.randint(1, d1 - 1), random.randint(1, d2 - 1)
-            ans_n, ans_d = n1 * n2, d1 * d2
-            g = math.gcd(ans_n, ans_d)
-            prompt = f"Multiply the fractions: $\\dfrac{{{n1}}}{{{d1}}} \\times \\dfrac{{{n2}}}{{{d2}}} = \\underline{{\\hspace{{2.5cm}}}}$"
-            solution = f"$\\dfrac{{{n1} \\times {n2}}}{{{d1} \\times {d2}}} = \\mathbf{{\\dfrac{{{ans_n//g}}}{{{ans_d//g}}}}}$"
-            answer_value = f"{ans_n//g}/{ans_d//g}"
-        else: # medium
+            if op == "multiplication":
+                n1, n2 = random.randint(1, d1 - 1), random.randint(1, d2 - 1)
+                ans_n, ans_d = n1 * n2, d1 * d2
+                g = math.gcd(ans_n, ans_d)
+                prompt = f"Multiply the fractions: $\\dfrac{{{n1}}}{{{d1}}} \\times \\dfrac{{{n2}}}{{{d2}}} = \\underline{{\\hspace{{2.5cm}}}}$"
+                solution = f"$\\dfrac{{{n1} \\times {n2}}}{{{d1} \\times {d2}}} = \\mathbf{{\\dfrac{{{ans_n//g}}}{{{ans_d//g}}}}}$"
+                answer_value = f"{ans_n//g}/{ans_d//g}"
+            else:
+                lcm = (d1 * d2) // math.gcd(d1, d2)
+                n1, n2 = random.randint(1, d1 - 1), random.randint(1, d2 - 1)
+                v1, v2 = n1 * (lcm // d1), n2 * (lcm // d2)
+                if op == "subtraction":
+                    if v1 < v2:
+                        d1, d2, n1, n2, v1, v2 = d2, d1, n2, n1, v2, v1
+                    ans_num = v1 - v2
+                    sym = "-"
+                else:  # addition
+                    ans_num = v1 + v2
+                    sym = "+"
+                g = math.gcd(ans_num, lcm) if ans_num else lcm
+                prompt = f"Calculate and simplify: $\\dfrac{{{n1}}}{{{d1}}} {sym} \\dfrac{{{n2}}}{{{d2}}} = \\underline{{\\hspace{{2.5cm}}}}$"
+                solution = f"$\\dfrac{{{v1}}}{{{lcm}}} {sym} \\dfrac{{{v2}}}{{{lcm}}} = \\dfrac{{{ans_num}}}{{{lcm}}} = \\mathbf{{\\dfrac{{{ans_num//g}}}{{{lcm//g}}}}}$"
+                answer_value = f"{ans_num//g}/{lcm//g}"
+        else:  # medium
             d1 = random.choice([2, 3, 4, 5])
             d2 = random.choice([3, 4, 5, 6])
             while d1 == d2:
                 d2 = random.choice([3, 4, 5, 6])
-            n1, n2 = random.randint(1, d1 - 1), random.randint(1, d2 - 1)
-            lcm = (d1 * d2) // math.gcd(d1, d2)
-            ans_num = n1 * (lcm // d1) + n2 * (lcm // d2)
-            g = math.gcd(ans_num, lcm)
-            prompt = f"Calculate and simplify: $\\dfrac{{{n1}}}{{{d1}}} + \\dfrac{{{n2}}}{{{d2}}} = \\underline{{\\hspace{{2.5cm}}}}$"
-            solution = f"$\\dfrac{{{ans_num}}}{{{lcm}}} = \\mathbf{{\\dfrac{{{ans_num//g}}}{{{lcm//g}}}}}$"
-            answer_value = f"{ans_num//g}/{lcm//g}"
+            if op == "multiplication":
+                n1, n2 = random.randint(1, d1 - 1), random.randint(1, d2 - 1)
+                ans_n, ans_d = n1 * n2, d1 * d2
+                g = math.gcd(ans_n, ans_d)
+                prompt = f"Multiply the fractions: $\\dfrac{{{n1}}}{{{d1}}} \\times \\dfrac{{{n2}}}{{{d2}}} = \\underline{{\\hspace{{2.5cm}}}}$"
+                solution = f"$\\dfrac{{{n1} \\times {n2}}}{{{d1} \\times {d2}}} = \\mathbf{{\\dfrac{{{ans_n//g}}}{{{ans_d//g}}}}}$"
+                answer_value = f"{ans_n//g}/{ans_d//g}"
+            else:
+                lcm = (d1 * d2) // math.gcd(d1, d2)
+                n1, n2 = random.randint(1, d1 - 1), random.randint(1, d2 - 1)
+                v1, v2 = n1 * (lcm // d1), n2 * (lcm // d2)
+                if op == "subtraction":
+                    if v1 < v2:
+                        d1, d2, n1, n2, v1, v2 = d2, d1, n2, n1, v2, v1
+                    ans_num = v1 - v2
+                    sym = "-"
+                else:  # addition
+                    ans_num = v1 + v2
+                    sym = "+"
+                g = math.gcd(ans_num, lcm) if ans_num else lcm
+                prompt = f"Calculate and simplify: $\\dfrac{{{n1}}}{{{d1}}} {sym} \\dfrac{{{n2}}}{{{d2}}} = \\underline{{\\hspace{{2.5cm}}}}$"
+                solution = f"$\\dfrac{{{ans_num}}}{{{lcm}}} = \\mathbf{{\\dfrac{{{ans_num//g}}}{{{lcm//g}}}}}$"
+                answer_value = f"{ans_num//g}/{lcm//g}"
 
         return Question(
             section=meta["focus_area"], topic="fractions", outcome_code=code,
@@ -1131,6 +1268,7 @@ class QuestionBank:
     def generate_2d_shapes(
         self,
         difficulty: str = "medium",
+        shapes: Optional[List[str]] = None,
         fixed_questions: Optional[List[Dict[str, Any]]] = None,
         index: int = 0
     ) -> Question:
@@ -1145,8 +1283,7 @@ class QuestionBank:
         meta = self._meta(code)
 
         if diff == "easy":
-            shapes = [("triangle", 3), ("quadrilateral", 4), ("pentagon", 5), ("hexagon", 6), ("heptagon", 7), ("octagon", 8)]
-            s_name, sides = random.choice(shapes)
+            s_name, sides, _ = _select_shape_entry(EASY_2D_SHAPES, shapes)
             diagram = _tikz_regular_polygon(sides)
             prompt = f"How many sides does this shape have?\\\\[0.4em]\n{diagram}\\\\[0.3em]\nSides: \\underline{{\\hspace{{2cm}}}}"
             solution = f"A {s_name} has $\\mathbf{{{sides}}}$ sides."
@@ -1164,13 +1301,13 @@ class QuestionBank:
             solution = f"$\\text{{Total Area}} = ({l1} \\times {w1}) + ({l2} \\times {w2}) = {l1*w1} + {l2*w2} = \\mathbf{{{area}\\text{{ cm}}^2}}$"
             answer_value = str(area)
         elif diff == "hard":
-            t_name = random.choice(["Equilateral", "Isosceles", "Scalene"])
+            t_name, _ = _select_shape_entry(HARD_2D_TRIANGLES, shapes)
             diagram = _tikz_triangle(t_name)
             prompt = f"Classify the triangle shown below (Equilateral, Isosceles, or Scalene):\\\\[0.4em]\n{diagram}\\\\[0.3em]\nClassification: \\underline{{\\hspace{{3cm}}}}"
             solution = f"\\textbf{{{t_name} Triangle}}"
             answer_value = t_name
         else:
-            name = random.choice(["Parallelogram", "Rhombus", "Trapezium"])
+            name, _ = _select_shape_entry(MEDIUM_2D_QUADS, shapes)
             diagram = _tikz_quadrilateral(name)
             prompt = f"Name the quadrilateral shown below:\\\\[0.4em]\n{diagram}\\\\[0.3em]\nName: \\underline{{\\hspace{{3cm}}}}"
             solution = f"\\textbf{{{name}}}"
@@ -1186,6 +1323,7 @@ class QuestionBank:
     def generate_3d_objects(
         self,
         difficulty: str = "medium",
+        objects_3d: Optional[List[str]] = None,
         fixed_questions: Optional[List[Dict[str, Any]]] = None,
         index: int = 0
     ) -> Question:
@@ -1212,8 +1350,7 @@ class QuestionBank:
             solution = f"$\\text{{Volume}} = {vol}\\text{{ cm}}^3 \\implies \\text{{Capacity}} = \\mathbf{{{cap_l:.2f}\\text{{ L}}}}$"
             answer_value = f"{cap_l:.2f}"
         else:
-            objs = [("Cube", 6, "square"), ("Rectangular Prism", 6, "rectangular"), ("Triangular Pyramid", 4, "triangular")]
-            name, faces, f_type = random.choice(objs)
+            name, faces, f_type, _ = _select_shape_entry(OBJ_3D_POOL, objects_3d)
             if name == "Cube":
                 s = round(random.uniform(1.3, 1.7), 2)
                 diagram = _tikz_cuboid(s, s)
@@ -1639,6 +1776,14 @@ def build_question_for_topic(
         kwargs["allow_remainder"] = topic_config["allow_remainder"]
     if "step_range" in topic_config:
         kwargs["step_range"] = topic_config["step_range"]
+    if "pattern_type" in topic_config:
+        kwargs["pattern_type"] = topic_config["pattern_type"]
+    if "op_type" in topic_config:
+        kwargs["op_type"] = topic_config["op_type"]
+    if "shapes" in topic_config:
+        kwargs["shapes"] = topic_config["shapes"]
+    if "objects_3d" in topic_config:
+        kwargs["objects_3d"] = topic_config["objects_3d"]
 
     fixed_questions = kwargs.get("fixed_questions")
     bypass_dedup = bool(fixed_questions and index < len(fixed_questions))

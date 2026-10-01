@@ -124,6 +124,36 @@ def make_distractors(question: Question, count: int = 3) -> List[str]:
 _MCQ_ITEM_RE = re.compile(r"\\item\s+(.*)")
 _OPTION_LETTER_RE = re.compile(r"Option\s*\(?\s*([A-D])\s*\)?", re.IGNORECASE)
 
+# Our generator.py prompts/solutions are authored as real LaTeX for the PDF
+# pipeline, so plain prose freely uses commands like \textbf{} or a \\[1em]
+# forced line break *outside* any $...$ math. MathJax in the browser only
+# ever processes the $...$ portions - everything else is dumped as literal
+# text - so these would otherwise show up as raw backslashes/braces on the
+# quiz page. _MATH_SPLIT_RE walks the string keeping $...$ math spans intact
+# (for MathJax) while the prose in between gets converted to plain HTML.
+_MATH_SPLIT_RE = re.compile(r'(\$(?:\\\$|[^$])*\$)')
+_LINEBREAK_RE = re.compile(r'\\\\(?:\[[^\]]*\])?')
+_TEXTBF_RE = re.compile(r'\\textbf\{([^{}]*)\}')
+_TEXTIT_RE = re.compile(r'\\textit\{([^{}]*)\}|\\emph\{([^{}]*)\}')
+_UNDERLINE_RE = re.compile(r'\\underline\{([^{}]*)\}')
+
+
+def _prose_segment_to_html(segment: str) -> str:
+    segment = _LINEBREAK_RE.sub('<br>', segment)
+    segment = _TEXTBF_RE.sub(r'<strong>\1</strong>', segment)
+    segment = _TEXTIT_RE.sub(lambda m: f"<em>{m.group(1) or m.group(2)}</em>", segment)
+    segment = _UNDERLINE_RE.sub(r'<u>\1</u>', segment)
+    return segment
+
+
+def prepare_for_web(text: str) -> str:
+    """Converts the plain-prose LaTeX our prompts/solutions use outside of
+    $...$ math mode into HTML, leaving math spans untouched for MathJax."""
+    if not text:
+        return text
+    parts = _MATH_SPLIT_RE.split(text)
+    return "".join(part if i % 2 == 1 else _prose_segment_to_html(part) for i, part in enumerate(parts))
+
 
 def _parse_native_mcq(question: Question) -> Optional[Dict[str, Any]]:
     """The multiple_choice topic already renders its own (\\Alph*)-labelled
@@ -134,7 +164,7 @@ def _parse_native_mcq(question: Question) -> Optional[Dict[str, Any]]:
     if "\\begin{enumerate}" not in prompt:
         return None
     q_text, _, rest = prompt.partition("\\begin{enumerate}")
-    q_text = q_text.replace("\\\\[0.3em]", "").strip()
+    q_text = q_text.strip()
     options = [opt.strip() for opt in _MCQ_ITEM_RE.findall(rest)]
     if not options:
         return None
@@ -170,12 +200,12 @@ def to_mcq(question: Question, num_options: int = 4) -> Optional[Dict[str, Any]]
             "id": question.id,
             "topic": question.topic,
             "outcome_code": question.outcome_code,
-            "prompt_tex": parsed["prompt_tex"],
+            "prompt_tex": prepare_for_web(parsed["prompt_tex"]),
             "is_native_mcq": True,
-            "options": parsed["options"],
+            "options": [prepare_for_web(o) for o in parsed["options"]],
             "correct_index": parsed["correct_index"],
             "correct_letter": question.answer_value or None,
-            "solution_tex": question.solution_tex,
+            "solution_tex": prepare_for_web(question.solution_tex),
         }
 
     value = (question.answer_value or "").strip()
@@ -194,12 +224,12 @@ def to_mcq(question: Question, num_options: int = 4) -> Optional[Dict[str, Any]]
         "id": question.id,
         "topic": question.topic,
         "outcome_code": question.outcome_code,
-        "prompt_tex": question.prompt_tex,
+        "prompt_tex": prepare_for_web(question.prompt_tex),
         "is_native_mcq": False,
-        "options": options,
+        "options": [prepare_for_web(o) for o in options],
         "correct_index": correct_index,
         "correct_letter": None,
-        "solution_tex": question.solution_tex,
+        "solution_tex": prepare_for_web(question.solution_tex),
     }
 
 

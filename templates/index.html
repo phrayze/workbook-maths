@@ -96,6 +96,9 @@
               {% elif field.type == 'times_table' %}
                 <input type="text" name="adv_{{ entry.topic }}_{{ field.name }}" value="{{ value }}" placeholder="blank = random" size="12">
                 {% if field.help %}<span class="field-help">{{ field.help }}</span>{% endif %}
+              {% elif field.type == 'shape_list' %}
+                <input type="text" name="adv_{{ entry.topic }}_{{ field.name }}" value="{{ value }}" placeholder="blank = random" size="24">
+                {% if field.help %}<span class="field-help">{{ field.help }}</span>{% endif %}
               {% elif field.type == 'int_range' %}
                 <span class="int-range">
                   <input type="number" name="adv_{{ entry.topic }}_{{ field.name }}_min" value="{{ value[0] }}" min="1" max="100" size="4">

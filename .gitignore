@@ -1,4 +1,16 @@
+# Generated workbook PDFs/LaTeX build artifacts
 output/
+
+# Python virtual environments
 venv/
+.venv/
+
+# Python bytecode cache
 __pycache__/
+*.pyc
+
+# Per-student online test history (local runtime data, not project content)
 results/history.jsonl
+
+# Claude Code / editor-local tooling config (launch.json, local settings)
+.claude/

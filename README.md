@@ -109,6 +109,8 @@ Topics are grouped into 8 **Practice Areas**, which are also the section titles 
 
 Difficulty maps loosely to Stage: **easy ≈ Stage 1**, **medium ≈ Stage 2**, **hard ≈ Stage 3**, **genius** is an optional extension tier past Stage 3. The exact outcome code for a given topic + difficulty is whatever the CSV lists — check there (or the picker's outcome-code chips) rather than assuming, since a couple of topics share a code across difficulties (e.g. `MA3-AR-01` covers both hard and genius column addition).
 
+Several topics render an actual diagram rather than plain text, generated with TikZ at random coordinates each time (so repeats don't look identical): `reading_time` (clock face), `geometry_angles` (angle diagram), `2d_shapes`/`3d_objects` (the shape/solid itself — a drawn polygon, triangle, quadrilateral, cube/prism/pyramid, or a labelled composite-area/tank figure at the genius tier), and `date_duration` (a real calendar grid for the relevant month(s), with the start date boxed and the end date underlined so the learner counts the days themselves). These only appear in the PDF — see point 3 under [Online Test & Auto-Marking](#online-test--auto-marking) for why.
+
 ---
 
 ## Configuring `config.yaml` (from `config-template.yaml`)
@@ -147,10 +149,15 @@ sections:
 A few topics take extra parameters beyond `count`/`difficulty` — these are documented inline in `config-template.yaml` next to each topic:
 
 - **Times table / divisor targeting**: `vertical_multiplication` and `long_division` accept `times_table: 3` (or a list `[2, 3, 4]`) to target specific facts.
+- **Specific shapes/objects**: `2d_shapes` accepts `shapes: [...]` (e.g. `["hexagon", "octagon"]`) and `3d_objects` accepts `objects_3d: [...]` (e.g. `["cube", "cuboid"]`) to restrict which shape/solid gets drawn, instead of a fully random pick. Each is matched against whatever vocabulary applies to the chosen `difficulty` tier (see the comments in `config-template.yaml`); an unmatched or empty list falls back to the full tier vocabulary rather than erroring.
+- **Operation / pattern type**: `fractions` accepts `op_type: addition|subtraction|multiplication` and `sequences` accepts `pattern_type: arithmetic|geometric`, both applying at easy/medium/hard (genius on both topics is always a fixed extension-tier problem, not gated by these).
 - **Fixed question overrides**: any topic accepts a `fixed_questions:` list to pin specific numbers/prompts instead of random generation (see the commented examples in the template).
 - **Hiding answers**: column-arithmetic questions (`vertical_addition/subtraction/multiplication`) always hide the worked digits on the student page (`xlop` phantom styling) and reveal them only in the Answer Key page at the end — this isn't configurable per question, just a fixed behaviour of those three topics.
+- **Known limitation**: `digits` (addition/subtraction), `digits_top`/`digits_bottom` (multiplication) and `digits_dividend`/`digits_divisor` (long division) are accepted in config but not yet wired up — operand size is currently determined entirely by `difficulty`, not by these fields. They're left in place for forward compatibility; see the inline comments in `config-template.yaml`.
 
 Whitespace can be set globally (`working_space` at the top level), per-section, or left at the default — the most specific one wins.
+
+**No duplicate questions within a workbook**: `build_question_for_topic` tracks every prompt already produced per topic and retries (bounded) if a generator is about to repeat one verbatim — this matters for topics like `chance`, `data` and `multiple_choice` that draw from a finite scenario bank rather than synthesising fresh numbers each time. If you request more questions for one topic/difficulty than that bank has distinct entries (the picker allows up to 20 per topic), duplicates become unavoidable and the generator falls back to repeating rather than looping forever — in practice this only bites at unusually high counts, well above the defaults.
 
 ---
 
@@ -160,6 +167,17 @@ Whitespace can be set globally (`working_space` at the top level), per-section, 
 
 1. Each generated question also gets a plain-text `answer_value` (e.g. `"742"`, `"3/4"`, `"14:45"`) alongside its LaTeX solution.
 2. `mcq_utils.py` turns that into a 4-option question with rule-based distractors (numeric near-misses, fraction/time/category alternatives) — no LLM, just pattern rules per answer shape.
-3. Questions that rely on TikZ diagrams or the `xlop` column-arithmetic package (clock faces, angle diagrams, vertical addition/subtraction/multiplication) can't be rendered as plain HTML, so they're skipped from the online test — they still appear in the PDF workbook.
+3. Questions that rely on TikZ diagrams or the `xlop` column-arithmetic package — clock faces, angle diagrams, vertical addition/subtraction/multiplication, 2D/3D shape drawings, and the date-duration calendar grid — can't be rendered as plain HTML, so they're skipped from the online test; they still appear in the PDF workbook.
+4. For everything else, `mcq_utils.prepare_for_web()` converts the small set of plain-prose LaTeX commands our prompts use outside `$...$` math (`\textbf{}`, a `\\[1em]` line break, `\underline{}`) into HTML, since the browser's MathJax only ever processes the `$...$` portions — the math itself is left untouched for MathJax to render.
 
 The quiz is marked instantly in the browser. Results are broken down **by topic/Practice Area**, not just an overall score, and every attempt is appended to `results/history.jsonl` (student, date, stage, per-topic correct/total/accuracy). Next time you open the picker for that student and stage, any topic averaging below 70% accuracy over their recent attempts is surfaced as a suggestion banner — it recommends more practice there but never changes your counts/difficulty automatically. Past attempts are browsable at `/history`.
+
+---
+
+## Extending the Question Bank
+
+Everything today is deterministic, rule-based Python in `generator.py` — random numbers plugged into templates, with the answer computed alongside the question so correctness is guaranteed by construction. There's no LLM and no network call anywhere in the pipeline. Two ways to go further, in increasing order of effort:
+
+1. **Pin specific questions (already supported).** Most `generate_*` methods accept a `fixed_questions:` list in config.yaml — either raw values (e.g. `{top: 458, bottom: 279}`) or a full override (`{prompt: "...", solution: "..."}`), consumed in order instead of randomising. See the commented examples in `config-template.yaml`.
+2. **A bigger curated question bank (still deterministic, not yet built).** For more than a handful of hand-authored questions per topic, add a CSV/JSON file per topic and a loader that samples from it, falling back to procedural generation once exhausted. Low risk, no new dependencies, stays fully offline.
+3. **LLM-generated questions (a bigger architectural change).** This would call an LLM per question (topic/difficulty/outcome code → prompt/solution/answer), which means a network dependency, an API key, per-generation cost/latency, and — the hard part — correctness verification: today's answer is trustworthy *because* the same code that built the question also computed the answer. An LLM-authored question needs either a verification pass or blind trust in the model, plus LaTeX-safety sanitization before anything reaches `pdflatex`. Worth it only if you specifically want open-ended word-problem phrasing that templates can't produce — not a drop-in addition.

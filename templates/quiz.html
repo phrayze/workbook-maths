@@ -26,16 +26,16 @@
   <form id="quiz-form">
     {% for mcq in mcqs %}
     <div class="quiz-question" data-topic="{{ mcq.topic }}" data-correct="{{ mcq.correct_index }}">
-      <p class="q-text">Q{{ loop.index }}. {{ mcq.prompt_tex }}</p>
+      <p class="q-text">Q{{ loop.index }}. {{ mcq.prompt_tex | safe }}</p>
       <div class="q-options">
         {% for opt in mcq.options %}
         <label>
           <input type="radio" name="q_{{ mcq.id }}" value="{{ loop.index0 }}">
-          {{ opt }}
+          {{ opt | safe }}
         </label>
         {% endfor %}
       </div>
-      <p class="q-solution" hidden>{{ mcq.solution_tex }}</p>
+      <p class="q-solution" hidden>{{ mcq.solution_tex | safe }}</p>
     </div>
     {% endfor %}
 

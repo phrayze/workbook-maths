@@ -99,7 +99,9 @@ sections:
       # Vertical Addition (XLOP Column Addition)
       vertical_addition:
         count: 6                      # Number of questions to generate
-        digits: 3                     # Number of digits per operand (2, 3, 4)
+        digits: 3                     # KNOWN LIMITATION: accepted but not yet wired up - operand size is
+                                       # currently determined entirely by `difficulty` (easy~2-digit,
+                                       # medium~3-digit, hard~4-digit). Left here for forward compatibility.
         allow_carrying: true          # Enable carrying/regrouping across columns
         difficulty: "medium"          # Options: easy (MA1-CSQ-01), medium (MA2-AR-01), hard/genius (MA3-AR-01)
         # Optional Fixed Questions Override:
@@ -109,7 +111,7 @@ sections:
       # Vertical Subtraction (XLOP Column Subtraction)
       vertical_subtraction:
         count: 6
-        digits: 3
+        digits: 3                     # KNOWN LIMITATION: see vertical_addition above - not yet wired up.
         allow_borrowing: true         # Enable borrowing/regrouping across columns
         difficulty: "medium"          # Options: easy (MA1-CSQ-01), medium (MA2-AR-01), hard/genius (MA3-AR-01)
         # fixed_questions:
@@ -118,16 +120,18 @@ sections:
       # Vertical Multiplication (XLOP Column Multiplication)
       vertical_multiplication:
         count: 6
-        digits_top: 2                 # Top number digits (e.g. 2, 3)
-        digits_bottom: 1              # Bottom number digits (e.g. 1, 2)
+        digits_top: 2                 # KNOWN LIMITATION: accepted but not yet wired up - operand size is
+        digits_bottom: 1              # determined by `difficulty` (times_table/multiplier, if set, always
+                                       # override the bottom number regardless of digits_bottom).
         times_table: 3                # Target specific times table (e.g. 3) or list [2, 3, 4]
         difficulty: "easy"            # Options: easy (MA1-FG-01), medium (MA2-MR-01), hard/genius (MA3-MR-01)
 
       # Long Division (XLOP Long Division Scheme)
       long_division:
         count: 6
-        digits_dividend: 3            # Number of digits in dividend
-        digits_divisor: 1             # Number of digits in divisor
+        digits_dividend: 3            # KNOWN LIMITATION: accepted but not yet wired up - dividend/divisor
+        digits_divisor: 1             # size is determined by `difficulty` (divisor/times_table, if set,
+                                       # always override the divisor regardless of digits_divisor).
         times_table: 4                # Target specific divisor / times table (e.g. 4) or list [3, 4, 5]
         allow_remainder: false        # Allow non-zero remainders
         difficulty: "medium"          # Options: easy (MA1-FG-01), medium (MA2-MR-02), hard/genius (MA3-MR-01)
@@ -146,8 +150,8 @@ sections:
 
       fractions:
         count: 3
-        op_type: "addition"           # Options: "addition", "subtraction", "multiplication"
-        difficulty: "medium"          # Options: easy/medium (same denom: MA2-PF-01), hard (different denom/multiplication: MA3-RQF-01), genius (mixed numbers)
+        op_type: "addition"           # Options: "addition", "subtraction", "multiplication" - applies at easy/medium/hard (genius is always a fixed mixed-number addition problem). If omitted, hard defaults to "multiplication" and the rest to "addition".
+        difficulty: "medium"          # Options: easy (same denom: MA2-PF-01), medium (different denom), hard (different denom, bigger: MA3-RQF-01), genius (mixed numbers)
 
 
   # ----------------------------------------------------------------------------
@@ -164,8 +168,8 @@ sections:
       # Number Patterns & Sequences
       sequences:
         count: 3
-        step_range: [3, 12]           # Min and max step difference
-        pattern_type: "arithmetic"    # Options: "arithmetic" (addition) or "geometric" (multiplication)
+        step_range: [3, 12]           # Min/max step difference, used only when pattern_type resolves to "arithmetic"
+        pattern_type: "arithmetic"    # Options: "arithmetic" (add a constant step) or "geometric" (multiply by a constant ratio) - applies at easy/medium/hard (genius is always a fixed alternating two-step pattern). If omitted, hard defaults to "geometric" and the rest to "arithmetic".
         difficulty: "medium"          # Options: easy (MA1-RWN-01), medium (MA2-MR-01), hard/genius (MA3-MR-02)
 
       # Algebra & Linear Equations
@@ -219,17 +223,37 @@ sections:
         count: 2
         difficulty: "medium"          # Options: easy/medium (Classify Acute/Right/Obtuse: MA2-GM-03), hard/genius (Missing angle 180° - x, triangle angles: MA3-GM-03)
 
-      # 2D Shapes & Spatial Structure
+      # 2D Shapes & Spatial Structure - each question renders an actual TikZ
+      # drawing of the shape (easy: a labelled polygon; medium: a named
+      # quadrilateral; hard: a triangle to classify; genius: a labelled
+      # L-shaped composite area problem).
       2d_shapes:
         count: 3
         difficulty: "medium"          # Options: easy (MA1-2DS-01), medium (MA2-2DS-01), hard/genius (MA3-2DS-01, composite area)
-        shapes: ["triangle", "square", "rectangle", "parallelogram", "trapezium", "pentagon", "hexagon", "octagon"]        
+        # Optional: restrict which shape(s) are drawn. `shapes` is filtered
+        # against whichever vocabulary applies to the chosen `difficulty`
+        # tier - an unmatched or empty list falls back to the full tier
+        # vocabulary rather than erroring. Leave unset for fully random.
+        #   easy:   triangle, quadrilateral (aliases: square, rectangle), pentagon, hexagon, heptagon, octagon
+        #   medium: parallelogram, rhombus, trapezium
+        #   hard:   equilateral, isosceles, scalene
+        #   genius: not shape-filterable (fixed L-shape area problem)
+        # shapes: ["hexagon", "octagon"]
 
-      # 3D Objects & Nets
+      # 3D Objects & Nets - each question renders an actual TikZ drawing of
+      # the solid (cube/cuboid/pyramid with dashed hidden edges; genius is a
+      # labelled rectangular tank for a capacity-in-litres problem).
       3d_objects:
         count: 3
         difficulty: "medium"          # Options: easy (MA1-3DS-01), medium (MA2-3DS-01), hard/genius (MA3-3DS-01, capacity in litres)
-        objects_3d: ["cube", "cuboid", "cylinder", "cone", "sphere", "pyramid", "prism"]
+        # Optional: restrict which object(s) are drawn (non-genius tiers
+        # only - genius is a fixed tank/capacity problem). Supported today:
+        # cube, cuboid (alias: rectangular prism, prism), pyramid (alias:
+        # triangular pyramid, tetrahedron). Curved solids (cylinder, cone,
+        # sphere) aren't implemented yet - an unmatched/empty list falls back
+        # to the full supported set rather than erroring. Leave unset for
+        # fully random.
+        # objects_3d: ["cube", "cuboid"]
 
   # ----------------------------------------------------------------------------
   # SECTION 7: STATISTICS & PROBABILITY
@@ -242,19 +266,20 @@ sections:
     working_space: "2.5cm"
     topics:
 
-      # Data & Graphing
+      # Data & Graphing - easy/medium/hard draw from a randomised fruit-survey
+      # scenario bank (varying categories, vote counts and phrasing); genius
+      # is a mean/median calculation over a random dataset.
       data:
         count: 3
-        difficulty: "medium"          # Options: easy (MA1-DATA-01), medium (MA2-DATA-01), hard/genius (MA3-DATA-01, mean/median)
-        data_types: ["survey", "table", "graph"]        
+        difficulty: "medium"          # Options: easy/medium/hard (survey "which was most popular?"), genius (MA3-DATA-01, mean/median)
 
-      # Chance & Probability
+      # Chance & Probability - each tier draws from its own randomised
+      # scenario bank (easy/medium: Certain/Likely/Unlikely/Impossible
+      # everyday events; hard: single-die fractional probability; genius:
+      # two-dice/two-coin fractional probability).
       chance:
         count: 3
-        difficulty: "medium"          # Options: easy (MA1-CHAN-01), medium (MA2-CHAN-01), hard/genius (MA3-CHAN-01, fractional probability)
-        chance_types: ["marbles", "dice", "spinner"]
-
-        
+        difficulty: "medium"          # Options: easy/medium (MA1/MA2-CHAN-01), hard/genius (MA3-CHAN-01, fractional probability)
 
 
   # ----------------------------------------------------------------------------

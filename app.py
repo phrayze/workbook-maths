@@ -45,6 +45,8 @@ def _advanced_field_value(field: Dict[str, Any], saved_cfg: Dict[str, Any]):
     raw = saved_cfg.get(field["name"], field["default"])
     if field["type"] == "times_table":
         return question_bank.format_times_table(raw)
+    if field["type"] == "shape_list":
+        return question_bank.format_shape_list(raw)
     return raw
 
 
@@ -99,6 +101,8 @@ def _read_advanced_field(field: Dict[str, Any], topic: str, form) -> Any:
         return form.get(name, field["default"])
     if field_type == "times_table":
         return question_bank.parse_times_table(form.get(name, ""))
+    if field_type == "shape_list":
+        return question_bank.parse_shape_list(form.get(name, ""))
     if field_type == "int_range":
         try:
             lo = int(form.get(f"{name}_min", field["default"][0]))

@@ -71,6 +71,17 @@ TOPIC_ADVANCED_FIELDS: Dict[str, List[Dict[str, Any]]] = {
         {"name": "op_type", "label": "Operation", "type": "select",
          "options": ["addition", "subtraction", "multiplication"], "default": "addition"},
     ],
+    "2d_shapes": [
+        {"name": "shapes", "label": "Specific shape(s)", "type": "shape_list", "default": "",
+         "help": "e.g. hexagon  or  rhombus,trapezium — leave blank for random. "
+                 "Easy: triangle, quadrilateral/square/rectangle, pentagon, hexagon, heptagon, octagon. "
+                 "Medium: parallelogram, rhombus, trapezium. Hard: equilateral, isosceles, scalene."},
+    ],
+    "3d_objects": [
+        {"name": "objects_3d", "label": "Specific object(s)", "type": "shape_list", "default": "",
+         "help": "e.g. cube  or  cube,pyramid — leave blank for random. "
+                 "Supported: cube, cuboid/rectangular prism, pyramid."},
+    ],
 }
 
 
@@ -97,6 +108,26 @@ def parse_times_table(raw: str):
         return int(raw)
     except ValueError:
         return None
+
+
+def parse_shape_list(raw: str):
+    """Parses the picker's comma-separated shape/object names into a list for
+    generator.py's `shapes` / `objects_3d` options: "" -> None, "hexagon" ->
+    ["hexagon"], "rhombus, trapezium" -> ["rhombus", "trapezium"]."""
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    items = [s.strip() for s in raw.split(",") if s.strip()]
+    return items or None
+
+
+def format_shape_list(value) -> str:
+    """Inverse of parse_shape_list, for pre-filling the picker from a saved config.yaml."""
+    if not value:
+        return ""
+    if isinstance(value, list):
+        return ", ".join(value)
+    return str(value)
 
 
 def format_times_table(value) -> str:
