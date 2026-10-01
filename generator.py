@@ -3,6 +3,7 @@ import math
 import os
 import csv
 import re
+import calendar
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field
@@ -231,12 +232,191 @@ def _regenerate_until(pair_fn, check_fn, want: bool, max_attempts: int = 200):
     return a, b
 
 
+# ------------------------------------------------------------------------
+# TikZ shape helpers (Geometry & Shape questions). Every helper folds in a
+# random rotation/scale/dimension so two calls for the same shape kind still
+# produce different coordinate values embedded in the LaTeX source - this is
+# what keeps otherwise-identical "classify this triangle" style questions
+# from rendering as byte-identical duplicates when a tier only has a
+# handful of valid categories (see build_question_for_topic's dedup pass).
+# ------------------------------------------------------------------------
+
+def _tikz_regular_polygon(sides: int) -> str:
+    rotate = random.uniform(0, 360 / sides)
+    size = round(random.uniform(1.0, 1.3), 2)
+    pts = []
+    for i in range(sides):
+        angle = math.radians(90 + rotate + i * 360 / sides)
+        pts.append(f"({size * math.cos(angle):.3f},{size * math.sin(angle):.3f})")
+    path = " -- ".join(pts) + " -- cycle"
+    return (
+        "\\begin{tikzpicture}[scale=1]\n"
+        f"  \\draw[very thick, fill=gray!10] {path};\n"
+        "\\end{tikzpicture}"
+    )
+
+
+def _tikz_triangle(kind: str) -> str:
+    if kind == "Equilateral":
+        s = round(random.uniform(1.6, 2.2), 2)
+        pts = [(0, 0), (s, 0), (s / 2, s * math.sqrt(3) / 2)]
+    elif kind == "Isosceles":
+        w = round(random.uniform(0.8, 1.5), 2)
+        h = round(random.uniform(1.5, 2.3), 2)
+        pts = [(-w, 0), (w, 0), (0, h)]
+    else:  # Scalene
+        bx = round(random.uniform(1.8, 2.6), 2)
+        apex_x = round(random.uniform(0.2, bx - 0.6), 2)
+        apex_y = round(random.uniform(1.2, 2.1), 2)
+        pts = [(0, 0), (bx, 0), (apex_x, apex_y)]
+    rotate = round(random.uniform(0, 359), 1)
+    path = " -- ".join(f"({x:.3f},{y:.3f})" for x, y in pts) + " -- cycle"
+    return (
+        f"\\begin{{tikzpicture}}[scale=0.9, rotate={rotate}]\n"
+        f"  \\draw[very thick, fill=gray!10] {path};\n"
+        "\\end{tikzpicture}"
+    )
+
+
+def _tikz_quadrilateral(kind: str) -> str:
+    if kind == "Rhombus":
+        a = round(random.uniform(1.0, 1.6), 2)
+        b = round(random.uniform(0.7, 1.3), 2)
+        pts = [(0, b), (a, 0), (0, -b), (-a, 0)]
+    elif kind == "Trapezium":
+        bottom_w = round(random.uniform(2.0, 2.8), 2)
+        top_w = round(random.uniform(0.8, bottom_w - 0.8), 2)
+        h = round(random.uniform(1.1, 1.7), 2)
+        x_off = (bottom_w - top_w) / 2
+        pts = [(0, 0), (bottom_w, 0), (bottom_w - x_off, h), (x_off, h)]
+    else:  # Parallelogram
+        w = round(random.uniform(1.8, 2.4), 2)
+        h = round(random.uniform(1.0, 1.5), 2)
+        skew = round(random.uniform(0.4, 0.9), 2)
+        pts = [(0, 0), (w, 0), (w + skew, h), (skew, h)]
+    rotate = round(random.uniform(0, 359), 1)
+    path = " -- ".join(f"({x:.3f},{y:.3f})" for x, y in pts) + " -- cycle"
+    return (
+        f"\\begin{{tikzpicture}}[scale=0.9, rotate={rotate}]\n"
+        f"  \\draw[very thick, fill=gray!10] {path};\n"
+        "\\end{tikzpicture}"
+    )
+
+
+def _tikz_l_shape(l1: int, w1: int, l2: int, w2: int) -> str:
+    sx = sy = 0.3
+    L1, W1, L2, W2 = l1 * sx, w1 * sy, l2 * sx, w2 * sy
+    return (
+        "\\begin{tikzpicture}[scale=1]\n"
+        "  \\draw[very thick, fill=gray!10]\n"
+        f"    (0,0) -- ({L1:.2f},0) -- ({L1:.2f},{W1:.2f}) -- ({L2:.2f},{W1:.2f})"
+        f" -- ({L2:.2f},{W1 + W2:.2f}) -- (0,{W1 + W2:.2f}) -- cycle;\n"
+        f"  \\node at ({L1 / 2:.2f},{-0.35:.2f}) {{\\scriptsize {l1} cm}};\n"
+        f"  \\node[rotate=90] at ({-0.35:.2f},{W1 / 2:.2f}) {{\\scriptsize {w1} cm}};\n"
+        f"  \\node at ({L2 / 2:.2f},{W1 + W2 + 0.35:.2f}) {{\\scriptsize {l2} cm}};\n"
+        f"  \\node[rotate=90] at ({L2 + 0.35:.2f},{W1 + W2 / 2:.2f}) {{\\scriptsize {w2} cm}};\n"
+        "\\end{tikzpicture}"
+    )
+
+
+def _tikz_cuboid(w_disp: float, h_disp: float, label_w=None, label_h=None, label_d=None) -> str:
+    dx, dy = round(random.uniform(0.4, 0.6), 2), round(random.uniform(0.25, 0.4), 2)
+    labels = ""
+    if label_w is not None:
+        labels += f"  \\node at ({w_disp / 2:.2f},{-0.3:.2f}) {{\\scriptsize {label_w}}};\n"
+    if label_h is not None:
+        labels += f"  \\node[rotate=90] at ({-0.3:.2f},{h_disp / 2:.2f}) {{\\scriptsize {label_h}}};\n"
+    if label_d is not None:
+        labels += f"  \\node at ({w_disp + dx / 2:.2f},{h_disp + dy + 0.25:.2f}) {{\\scriptsize {label_d}}};\n"
+    return (
+        "\\begin{tikzpicture}[scale=0.9, line join=round]\n"
+        f"  \\draw[dashed] ({dx:.2f},{dy:.2f}) -- ({w_disp + dx:.2f},{dy:.2f}) -- "
+        f"({w_disp + dx:.2f},{h_disp + dy:.2f}) -- ({dx:.2f},{h_disp + dy:.2f}) -- cycle;\n"
+        f"  \\draw[dashed] (0,0) -- ({dx:.2f},{dy:.2f});\n"
+        f"  \\draw ({w_disp:.2f},0) -- ({w_disp + dx:.2f},{dy:.2f});\n"
+        f"  \\draw (0,{h_disp:.2f}) -- ({dx:.2f},{h_disp + dy:.2f});\n"
+        f"  \\draw ({w_disp:.2f},{h_disp:.2f}) -- ({w_disp + dx:.2f},{h_disp + dy:.2f});\n"
+        f"  \\draw[very thick, fill=gray!10] (0,0) -- ({w_disp:.2f},0) -- "
+        f"({w_disp:.2f},{h_disp:.2f}) -- (0,{h_disp:.2f}) -- cycle;\n"
+        f"{labels}"
+        "\\end{tikzpicture}"
+    )
+
+
+def _tikz_pyramid() -> str:
+    base_w = round(random.uniform(1.8, 2.4), 2)
+    height = round(random.uniform(1.9, 2.5), 2)
+    back_x = round(base_w * random.uniform(0.55, 0.7), 2)
+    back_y = round(random.uniform(0.3, 0.5), 2)
+    apex_x = round(base_w * random.uniform(0.25, 0.4), 2)
+    return (
+        "\\begin{tikzpicture}[scale=0.9]\n"
+        f"  \\draw[very thick, fill=gray!10] (0,0) -- ({base_w:.2f},0) -- ({back_x:.2f},{back_y:.2f}) -- cycle;\n"
+        f"  \\draw[very thick] (0,0) -- ({apex_x:.2f},{height:.2f});\n"
+        f"  \\draw[very thick] ({base_w:.2f},0) -- ({apex_x:.2f},{height:.2f});\n"
+        f"  \\draw[very thick, dashed] ({back_x:.2f},{back_y:.2f}) -- ({apex_x:.2f},{height:.2f});\n"
+        "\\end{tikzpicture}"
+    )
+
+
+# ------------------------------------------------------------------------
+# Calendar grid helper (Measurement & Time - date duration questions). Renders
+# real month(s) as a LaTeX table so the learner reads the day-count off the
+# grid themselves, rather than being handed the duration directly.
+# ------------------------------------------------------------------------
+
+def _month_calendar_tex(year: int, month: int, marks: Dict[int, str]) -> str:
+    cal = calendar.Calendar(firstweekday=0)
+    weeks = cal.monthdayscalendar(year, month)
+    rows = []
+    for week in weeks:
+        cells = []
+        for day in week:
+            if day == 0:
+                cells.append("")
+            elif marks.get(day) == "start":
+                cells.append(f"\\fbox{{\\textbf{{{day}}}}}")
+            elif marks.get(day) == "end":
+                cells.append(f"\\underline{{\\textbf{{{day}}}}}")
+            else:
+                cells.append(str(day))
+        rows.append(" & ".join(cells) + " \\\\\n\\hline")
+    body = "\n".join(rows)
+    return (
+        f"\\textbf{{{calendar.month_name[month]} {year}}}\\\\[0.2em]\n"
+        "\\begin{tabular}{|c|c|c|c|c|c|c|}\n\\hline\n"
+        "Mon & Tue & Wed & Thu & Fri & Sat & Sun \\\\\n\\hline\n"
+        f"{body}\n"
+        "\\end{tabular}"
+    )
+
+
+def _calendar_block_for_range(start_date: datetime, end_date: datetime) -> str:
+    months = []
+    cur = start_date.replace(day=1)
+    end_marker = end_date.replace(day=1)
+    while cur <= end_marker:
+        months.append((cur.year, cur.month))
+        cur = cur.replace(year=cur.year + 1, month=1) if cur.month == 12 else cur.replace(month=cur.month + 1)
+
+    blocks = []
+    for y, m in months:
+        marks: Dict[int, str] = {}
+        if (y, m) == (start_date.year, start_date.month):
+            marks[start_date.day] = "start"
+        if (y, m) == (end_date.year, end_date.month):
+            marks[end_date.day] = "start" if marks.get(end_date.day) == "start" else "end"
+        blocks.append(_month_calendar_tex(y, m, marks))
+    return "\\\\[0.6em]\n".join(blocks)
+
+
 class QuestionBank:
     """Generates dynamic mathematics questions aligned to NESA Syllabus outcomes across EASY, MEDIUM, HARD, and GENIUS difficulties."""
 
     def __init__(self, seed: Optional[int] = None):
         if seed is not None:
             random.seed(seed)
+        self._seen_prompts: Dict[str, set] = {}
 
     def _meta(self, outcome_code: str) -> Dict[str, Any]:
         return OUTCOME_REGISTRY.get(outcome_code, {
@@ -628,25 +808,25 @@ class QuestionBank:
             solution = f"Missing number is $\\mathbf{{{ans}}}$ (Rule: add ${step}$)"
         elif diff == "genius":
             # Alternating step rule e.g. +3, x2, +3, x2
-            start = random.randint(2, 5)
-            add_val = random.randint(2, 4)
-            mult_val = 2
+            start = random.randint(2, 6)
+            add_val = random.randint(2, 6)
+            mult_val = random.choice([2, 3])
             seq = [start]
             for i in range(5):
                 if i % 2 == 0:
                     seq.append(seq[-1] + add_val)
                 else:
                     seq.append(seq[-1] * mult_val)
-            blank_idx = 4
+            blank_idx = random.choice([2, 3, 4])
             ans = seq[blank_idx]
             seq_display = [str(x) if i != blank_idx else "\\underline{\\hspace{1.5cm}}" for i, x in enumerate(seq)]
             prompt = f"Find the missing number in the two-step pattern:\\\\[0.5em] ${', '.join(seq_display)}$"
             solution = f"Missing number is $\\mathbf{{{ans}}}$ (Rule: alternate $+{add_val}$ and $\\times {mult_val}$)"
         elif diff == "hard":
-            ratio = random.choice([2, 3])
-            start = random.randint(1, 5)
+            ratio = random.choice([2, 3, 4])
+            start = random.randint(1, 6)
             seq = [start * (ratio ** i) for i in range(5)]
-            blank_idx = 3
+            blank_idx = random.choice([1, 2, 3])
             ans = seq[blank_idx]
             seq_display = [str(x) if i != blank_idx else "\\underline{\\hspace{1.5cm}}" for i, x in enumerate(seq)]
             prompt = f"Find the missing number in the geometric pattern:\\\\[0.5em] ${', '.join(seq_display)}$"
@@ -705,9 +885,9 @@ class QuestionBank:
             answer_value = f"{ans_num//g}/{denom//g}"
         elif diff == "genius":
             # Mixed numbers operations e.g. 2 (1/2) + 1 (3/4)
-            w1, w2 = random.randint(1, 3), random.randint(1, 3)
-            d1, d2 = 2, 4
-            n1, n2 = 1, 3
+            w1, w2 = random.randint(1, 5), random.randint(1, 5)
+            d1, d2 = random.choice([(2, 4), (3, 6), (2, 6), (3, 4), (2, 8), (4, 8), (3, 9)])
+            n1, n2 = random.randint(1, d1 - 1), random.randint(1, d2 - 1)
             tot_num = (w1 * d1 + n1) * d2 + (w2 * d2 + n2) * d1
             tot_den = d1 * d2
             g = math.gcd(tot_num, tot_den)
@@ -965,36 +1145,41 @@ class QuestionBank:
         meta = self._meta(code)
 
         if diff == "easy":
-            shapes = [("triangle", 3), ("quadrilateral", 4), ("pentagon", 5), ("hexagon", 6)]
+            shapes = [("triangle", 3), ("quadrilateral", 4), ("pentagon", 5), ("hexagon", 6), ("heptagon", 7), ("octagon", 8)]
             s_name, sides = random.choice(shapes)
-            prompt = f"How many sides does a \\textbf{{{s_name}}} have?"
+            diagram = _tikz_regular_polygon(sides)
+            prompt = f"How many sides does this shape have?\\\\[0.4em]\n{diagram}\\\\[0.3em]\nSides: \\underline{{\\hspace{{2cm}}}}"
             solution = f"A {s_name} has $\\mathbf{{{sides}}}$ sides."
             answer_value = str(sides)
         elif diff == "genius":
             l1, w1 = random.randint(6, 12), random.randint(4, 8)
             l2, w2 = random.randint(3, 5), random.randint(2, 4)
             area = (l1 * w1) + (l2 * w2)
-            prompt = f"An L-shaped figure is formed by two rectangles: $R_1 ({l1}\\text{{ cm}} \\times {w1}\\text{{ cm}})$ and $R_2 ({l2}\\text{{ cm}} \\times {w2}\\text{{ cm}})$. Calculate the total area:"
+            diagram = _tikz_l_shape(l1, w1, l2, w2)
+            prompt = (
+                f"An L-shaped figure is formed by two rectangles, as shown below. Calculate the total area:"
+                f"\\\\[0.4em]\n{diagram}\\\\[0.3em]\n"
+                f"Area: \\underline{{\\hspace{{2.5cm}}}}"
+            )
             solution = f"$\\text{{Total Area}} = ({l1} \\times {w1}) + ({l2} \\times {w2}) = {l1*w1} + {l2*w2} = \\mathbf{{{area}\\text{{ cm}}^2}}$"
             answer_value = str(area)
         elif diff == "hard":
-            triangles = ["Equilateral (3 equal sides)", "Isosceles (2 equal sides)", "Scalene (no equal sides)"]
-            choice = random.choice(triangles)
-            t_name = choice.split()[0]
-            prompt = f"Classify a triangle that has {choice.split('(')[1][:-1]}:"
+            t_name = random.choice(["Equilateral", "Isosceles", "Scalene"])
+            diagram = _tikz_triangle(t_name)
+            prompt = f"Classify the triangle shown below (Equilateral, Isosceles, or Scalene):\\\\[0.4em]\n{diagram}\\\\[0.3em]\nClassification: \\underline{{\\hspace{{3cm}}}}"
             solution = f"\\textbf{{{t_name} Triangle}}"
             answer_value = t_name
         else:
-            shapes = [("Parallelogram", "2 pairs of parallel sides"), ("Rhombus", "4 equal sides"), ("Trapezium", "1 pair of parallel sides")]
-            name, feat = random.choice(shapes)
-            prompt = f"Name the quadrilateral that has \\textbf{{{feat}}}:"
+            name = random.choice(["Parallelogram", "Rhombus", "Trapezium"])
+            diagram = _tikz_quadrilateral(name)
+            prompt = f"Name the quadrilateral shown below:\\\\[0.4em]\n{diagram}\\\\[0.3em]\nName: \\underline{{\\hspace{{3cm}}}}"
             solution = f"\\textbf{{{name}}}"
             answer_value = name
 
         return Question(
             section=meta["focus_area"], topic="2d_shapes", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            prompt_tex=prompt, solution_tex=solution, answer_value=answer_value, layout_hint="list"
+            q_type="tikz", prompt_tex=prompt, solution_tex=solution, answer_value=answer_value, layout_hint="list"
         )
 
     # 12. 3D Objects & Nets
@@ -1018,20 +1203,32 @@ class QuestionBank:
             l, w, h = random.randint(4, 10), random.randint(3, 8), random.randint(5, 12)
             vol = l * w * h
             cap_l = vol / 1000.0
-            prompt = f"A rectangular tank measures $\\mathbf{{{l}\\text{{ cm}} \\times {w}\\text{{ cm}} \\times {h}\\text{{ cm}}}}$. Calculate its capacity in litres ($1000\\text{{ cm}}^3 = 1\\text{{ L}}$):"
+            diagram = _tikz_cuboid(min(2.4, 0.9 + w * 0.12), min(2.0, 0.9 + h * 0.1), label_w=f"{w} cm", label_h=f"{h} cm", label_d=f"{l} cm")
+            prompt = (
+                f"A rectangular tank measures $\\mathbf{{{l}\\text{{ cm}} \\times {w}\\text{{ cm}} \\times {h}\\text{{ cm}}}}$, as shown below. "
+                f"Calculate its capacity in litres ($1000\\text{{ cm}}^3 = 1\\text{{ L}}$):\\\\[0.4em]\n{diagram}\\\\[0.3em]\n"
+                f"Capacity: \\underline{{\\hspace{{2.5cm}}}}"
+            )
             solution = f"$\\text{{Volume}} = {vol}\\text{{ cm}}^3 \\implies \\text{{Capacity}} = \\mathbf{{{cap_l:.2f}\\text{{ L}}}}$"
             answer_value = f"{cap_l:.2f}"
         else:
             objs = [("Cube", 6, "square"), ("Rectangular Prism", 6, "rectangular"), ("Triangular Pyramid", 4, "triangular")]
             name, faces, f_type = random.choice(objs)
-            prompt = f"How many flat faces does a \\textbf{{{name}}} have?"
+            if name == "Cube":
+                s = round(random.uniform(1.3, 1.7), 2)
+                diagram = _tikz_cuboid(s, s)
+            elif name == "Rectangular Prism":
+                diagram = _tikz_cuboid(round(random.uniform(1.6, 2.1), 2), round(random.uniform(1.1, 1.5), 2))
+            else:
+                diagram = _tikz_pyramid()
+            prompt = f"How many flat faces does this \\textbf{{{name}}} have?\\\\[0.4em]\n{diagram}\\\\[0.3em]\nFaces: \\underline{{\\hspace{{2cm}}}}"
             solution = f"A {name} has $\\mathbf{{{faces}}}$ {f_type} faces."
             answer_value = str(faces)
 
         return Question(
             section=meta["focus_area"], topic="3d_objects", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            prompt_tex=prompt, solution_tex=solution, answer_value=answer_value, layout_hint="list"
+            q_type="tikz", prompt_tex=prompt, solution_tex=solution, answer_value=answer_value, layout_hint="list"
         )
 
     # 13. Data & Graphing
@@ -1059,9 +1256,16 @@ class QuestionBank:
             solution = f"$\\text{{Mean}} = \\mathbf{{{mean_val:.1f}}}$, $\\text{{Median}} = \\mathbf{{{median_val}}}$"
             answer_value = f"Mean {mean_val:.1f}, Median {median_val}"
         else:
-            prompt = "In a class survey, 8 students chose Apples, 12 chose Bananas, and 5 chose Oranges. Which fruit was most popular?"
-            solution = "\\textbf{Bananas} (12 students)"
-            answer_value = "Bananas"
+            fruit_pool = ["Apples", "Bananas", "Oranges", "Grapes", "Pears"]
+            n_items = random.choice([3, 4])
+            items = random.sample(fruit_pool, n_items)
+            counts = random.sample(range(4, 20), n_items)
+            best_idx = counts.index(max(counts))
+            subject = random.choice(["class survey", "canteen survey", "school fete stall", "lunchtime poll"])
+            parts = ", ".join(f"{c} chose {name}" for name, c in zip(items, counts))
+            prompt = f"In a {subject}, {parts}. Which was most popular?"
+            solution = f"\\textbf{{{items[best_idx]}}} ({counts[best_idx]} votes)"
+            answer_value = items[best_idx]
 
         return Question(
             section=meta["focus_area"], topic="data", outcome_code=code,
@@ -1087,17 +1291,65 @@ class QuestionBank:
         meta = self._meta(code)
 
         if diff == "genius":
-            prompt = "Two fair coins are flipped simultaneously. What is the probability of getting at least one Head? Express as a fraction."
-            solution = "Possible outcomes: $\\{HH, HT, TH, TT\\}$. Favourable: 3. $\\text{Probability} = \\mathbf{\\dfrac{3}{4}}$."
-            answer_value = "3/4"
+            genius_bank = [
+                ("at least one Head when two fair coins are flipped", 3, 4, "\\{HH, HT, TH, TT\\}", "HH, HT, TH"),
+                ("exactly two Heads when two fair coins are flipped", 1, 4, "\\{HH, HT, TH, TT\\}", "HH"),
+                ("no Heads at all when two fair coins are flipped", 1, 4, "\\{HH, HT, TH, TT\\}", "TT"),
+                ("at least one Tail when two fair coins are flipped", 3, 4, "\\{HH, HT, TH, TT\\}", "HT, TH, TT"),
+                ("a total of 7 when two fair 6-sided dice are rolled together", 6, 36, "36 equally likely pairs", "(1,6),(2,5),(3,4),(4,3),(5,2),(6,1)"),
+                ("doubles (both dice showing the same number) when two fair 6-sided dice are rolled", 6, 36, "36 equally likely pairs", "(1,1),(2,2),(3,3),(4,4),(5,5),(6,6)"),
+                ("a total of 2 or 12 when two fair 6-sided dice are rolled together", 2, 36, "36 equally likely pairs", "(1,1),(6,6)"),
+                ("a total greater than 10 when two fair 6-sided dice are rolled together", 3, 36, "36 equally likely pairs", "(5,6),(6,5),(6,6)"),
+                ("a total of 4 when two fair 6-sided dice are rolled together", 3, 36, "36 equally likely pairs", "(1,3),(2,2),(3,1)"),
+                ("an even total when two fair 6-sided dice are rolled together", 18, 36, "36 equally likely pairs", "half of all pairs sum to an even total"),
+                ("a total that is a multiple of 3 when two fair 6-sided dice are rolled together", 12, 36, "36 equally likely pairs", "totals of 3, 6, 9 or 12"),
+                ("at least one 6 showing when two fair 6-sided dice are rolled together", 11, 36, "36 equally likely pairs", "any pair containing a 6"),
+            ]
+            desc, favourable, total, outcomes, fav_list = random.choice(genius_bank)
+            g = math.gcd(favourable, total)
+            prompt = f"What is the probability of getting {desc}? Express as a fraction in simplest form."
+            solution = f"Possible outcomes: {outcomes}. Favourable: {fav_list}. $\\text{{Probability}} = \\dfrac{{{favourable}}}{{{total}}} = \\mathbf{{\\dfrac{{{favourable//g}}}{{{total//g}}}}}$."
+            answer_value = f"{favourable//g}/{total//g}"
         elif diff == "hard":
-            prompt = "What is the probability of rolling an even number on a standard 6-sided die? Express as a fraction."
-            solution = "$\\mathbf{\\dfrac{3}{6} = \\dfrac{1}{2}}$"
-            answer_value = "1/2"
+            hard_bank = [
+                ("an even number on a standard 6-sided die", 3),
+                ("an odd number on a standard 6-sided die", 3),
+                ("a multiple of 3 on a standard 6-sided die", 2),
+                ("a number greater than 4 on a standard 6-sided die", 2),
+                ("a number less than 3 on a standard 6-sided die", 2),
+                ("a 1 on a standard 6-sided die", 1),
+                ("a number greater than 2 on a standard 6-sided die", 4),
+                ("a multiple of 2 on a standard 6-sided die", 3),
+                ("a number that is not 6 on a standard 6-sided die", 5),
+                ("a prime number (2, 3 or 5) on a standard 6-sided die", 3),
+                ("a number that is at least 4 on a standard 6-sided die", 3),
+                ("a square number (1 or 4) on a standard 6-sided die", 2),
+            ]
+            desc, favourable = random.choice(hard_bank)
+            g = math.gcd(favourable, 6)
+            prompt = f"What is the probability of rolling {desc}? Express as a fraction."
+            solution = f"$\\mathbf{{\\dfrac{{{favourable}}}{{6}} = \\dfrac{{{favourable//g}}}{{{6//g}}}}}$"
+            answer_value = f"{favourable//g}/{6//g}"
         else:
-            prompt = "Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} to roll a 7 on a standard 6-sided die?"
-            solution = "\\textbf{Impossible} (die only has numbers 1--6)"
-            answer_value = "Impossible"
+            medium_bank = [
+                ("Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} to roll a 7 on a standard 6-sided die?", "Impossible", "\\textbf{Impossible} (die only has numbers 1--6)"),
+                ("Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} to roll a number from 1 to 6 on a standard 6-sided die?", "Certain", "\\textbf{Certain} (every face is 1--6)"),
+                ("A bag contains only blue marbles. Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} to pick a blue marble?", "Certain", "\\textbf{Certain} (there are no other colours in the bag)"),
+                ("A bag contains only blue marbles. Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} to pick a red marble?", "Impossible", "\\textbf{Impossible} (there are no red marbles in the bag)"),
+                ("Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} that the sun rises tomorrow morning?", "Certain", "\\textbf{Certain} (this happens every day)"),
+                ("Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} that it snows in Sydney in the middle of summer?", "Unlikely", "\\textbf{Unlikely} (Sydney summers are almost never cold enough to snow)"),
+                ("Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} to meet a talking dinosaur on the way to school?", "Impossible", "\\textbf{Impossible} (dinosaurs are extinct and cannot talk)"),
+                ("Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} that a tossed coin lands on either Heads or Tails?", "Certain", "\\textbf{Certain} (a coin only has two sides)"),
+                ("Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} that a new puppy will grow into a cat?", "Impossible", "\\textbf{Impossible} (puppies always grow into dogs)"),
+                ("A calendar shows every month has at least 28 days. Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} that next month has at least 28 days?", "Certain", "\\textbf{Certain} (every month has at least 28 days)"),
+                ("Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} to draw a spade from a deck containing only hearts?", "Impossible", "\\textbf{Impossible} (there are no spades in the deck)"),
+                ("Most days in Australia's desert regions are hot and dry. Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} that tomorrow will be hot and dry there?", "Likely", "\\textbf{Likely} (hot, dry days are the most common in that climate)"),
+                ("Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} that you will grow one year older on your next birthday?", "Certain", "\\textbf{Certain} (everyone turns one year older on their next birthday)"),
+                ("A spinner is divided into 4 equal red sections only. Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} to spin green?", "Impossible", "\\textbf{Impossible} (there is no green section on the spinner)"),
+                ("Most students in a class finish their homework most weeks. Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} that most of the class finishes homework this week?", "Likely", "\\textbf{Likely} (this matches the usual pattern for the class)"),
+                ("Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} to find a fish that can ride a bicycle?", "Impossible", "\\textbf{Impossible} (fish cannot ride bicycles)"),
+            ]
+            prompt, answer_value, solution = random.choice(medium_bank)
 
         return Question(
             section=meta["focus_area"], topic="chance", outcome_code=code,
@@ -1121,18 +1373,23 @@ class QuestionBank:
         meta = self._meta(code)
 
         start_day = random.randint(1, 12)
-        duration_days = random.randint(14, 45) if diff in ["hard", "genius"] else random.randint(4, 18)
+        duration_days = random.randint(14, 30) if diff in ["hard", "genius"] else random.randint(4, 18)
         base_date = datetime(2026, 5, start_day)
         end_date = base_date + timedelta(days=duration_days)
 
         start_str, end_str = base_date.strftime("%d %B"), end_date.strftime("%d %B")
-        prompt = f"How many days are there between \\textbf{{{start_str}}} and \\textbf{{{end_str}}}?"
+        calendar_tex = _calendar_block_for_range(base_date, end_date)
+        prompt = (
+            f"Using the calendar below, how many days are there between \\textbf{{{start_str}}} (boxed) "
+            f"and \\textbf{{{end_str}}} (underlined)?\\\\[0.4em]\n{calendar_tex}\\\\[0.3em]\n"
+            f"Number of days: \\underline{{\\hspace{{2.5cm}}}}"
+        )
         solution = f"$\\mathbf{{{duration_days}}}$ days"
 
         return Question(
             section=meta["focus_area"], topic="date_duration", outcome_code=code,
             focus_area=meta["focus_area"], capability=meta["capability"], stage=meta["stage"],
-            prompt_tex=prompt, solution_tex=solution, answer_value=str(duration_days), layout_hint="list"
+            q_type="tikz", prompt_tex=prompt, solution_tex=solution, answer_value=str(duration_days), layout_hint="list"
         )
 
     # 16. Speed & Distance
@@ -1156,14 +1413,22 @@ class QuestionBank:
 
         if diff == "genius":
             # Multi-leg journey e.g. Leg 1: 120km in 2h, Leg 2: 180km in 3h. Average speed?
-            d1, t1 = 120, 2
-            d2, t2 = 180, 3
-            tot_d = d1 + d2
-            tot_t = t1 + t2
-            avg_s = tot_d // tot_t
+            t1, t2 = random.randint(2, 4), random.randint(2, 4)
+            speed_bank = [40, 50, 60, 70, 80, 90, 100, 110, 120]
+            d1, d2, tot_d, tot_t = 0, 0, 0, 1
+            for _ in range(50):
+                s1, s2 = random.choice(speed_bank), random.choice(speed_bank)
+                if s1 == s2:
+                    continue
+                d1, d2 = s1 * t1, s2 * t2
+                tot_d, tot_t = d1 + d2, t1 + t2
+                if tot_d % tot_t == 0:
+                    break
+            avg_s_raw = tot_d / tot_t
+            avg_s = str(int(avg_s_raw)) if avg_s_raw == int(avg_s_raw) else f"{avg_s_raw:.1f}"
             prompt = f"{driver} drives $\\mathbf{{{d1}\\text{{ km}}}}$ in $\\mathbf{{{t1}\\text{{ hours}}}}$ and then $\\mathbf{{{d2}\\text{{ km}}}}$ in $\\mathbf{{{t2}\\text{{ hours}}}}$. Calculate the average speed for the whole journey:"
             solution = f"$\\text{{Average Speed}} = \\dfrac{{\\text{{Total Distance}}}}{{\\text{{Total Time}}}} = \\dfrac{{{tot_d}}}{{{tot_t}}} = \\mathbf{{{avg_s}\\text{{ km/h}}}}$"
-            answer_value = str(avg_s)
+            answer_value = avg_s
         else:
             prompt = f"{driver} drives a car at a constant speed of $\\mathbf{{{speed}\\text{{ km/h}}}}$ for $\\mathbf{{{hours}\\text{{ hours}}}}$. How far did {driver} travel?"
             solution = f"$\\text{{Distance}} = \\text{{Speed}} \\times \\text{{Time}} = {speed} \\times {hours} = \\mathbf{{{dist}\\text{{ km}}}}$"
@@ -1218,6 +1483,78 @@ class QuestionBank:
                 "opts": ["Hexagon", "Pentagon", "Octagon", "Heptagon"],
                 "ans": "B",
                 "explain": "A pentagon is a 5-sided polygon."
+            },
+            {
+                "q": "What is $\\dfrac{3}{4}$ expressed as a decimal?",
+                "opts": ["0.34", "0.75", "0.43", "1.33"],
+                "ans": "B",
+                "explain": "$\\dfrac{3}{4} = 3 \\div 4 = 0.75$."
+            },
+            {
+                "q": "Which of these numbers is divisible by both 2 and 3?",
+                "opts": ["14", "15", "18", "20"],
+                "ans": "C",
+                "explain": "$18 = 2 \\times 9 = 3 \\times 6$, so it is divisible by both."
+            },
+            {
+                "q": "What is the value of $x$ in $3x = 21$?",
+                "opts": ["6", "7", "8", "9"],
+                "ans": "B",
+                "explain": "$x = 21 \\div 3 = 7$."
+            },
+            {
+                "q": "How many millimetres are there in $4.5\\text{ cm}$?",
+                "opts": ["4.5 mm", "45 mm", "450 mm", "0.45 mm"],
+                "ans": "B",
+                "explain": "$1\\text{ cm} = 10\\text{ mm}$, so $4.5\\text{ cm} = 45\\text{ mm}$."
+            },
+            {
+                "q": "A rectangle has length $9\\text{ cm}$ and width $4\\text{ cm}$. What is its area?",
+                "opts": ["13 cm$^2$", "26 cm$^2$", "36 cm$^2$", "40 cm$^2$"],
+                "ans": "C",
+                "explain": "$\\text{Area} = \\text{length} \\times \\text{width} = 9 \\times 4 = 36\\text{ cm}^2$."
+            },
+            {
+                "q": "Which fraction is equivalent to $\\dfrac{2}{3}$?",
+                "opts": ["$\\dfrac{3}{4}$", "$\\dfrac{4}{6}$", "$\\dfrac{5}{9}$", "$\\dfrac{6}{10}$"],
+                "ans": "B",
+                "explain": "$\\dfrac{2}{3} = \\dfrac{2 \\times 2}{3 \\times 2} = \\dfrac{4}{6}$."
+            },
+            {
+                "q": "What is the next number in the pattern: $3, 6, 12, 24, \\_\\_$?",
+                "opts": ["30", "36", "48", "27"],
+                "ans": "C",
+                "explain": "Each term doubles the one before it: $24 \\times 2 = 48$."
+            },
+            {
+                "q": "What is $6^2$?",
+                "opts": ["12", "26", "36", "62"],
+                "ans": "C",
+                "explain": "$6^2 = 6 \\times 6 = 36$."
+            },
+            {
+                "q": "Which unit would best measure the mass of an apple?",
+                "opts": ["Millilitres", "Grams", "Kilometres", "Litres"],
+                "ans": "B",
+                "explain": "Grams are used for everyday small masses like an apple."
+            },
+            {
+                "q": "What is $\\dfrac{1}{2} + \\dfrac{1}{3}$?",
+                "opts": ["$\\dfrac{2}{5}$", "$\\dfrac{5}{6}$", "$\\dfrac{1}{6}$", "$\\dfrac{2}{6}$"],
+                "ans": "B",
+                "explain": "$\\dfrac{1}{2} + \\dfrac{1}{3} = \\dfrac{3}{6} + \\dfrac{2}{6} = \\dfrac{5}{6}$."
+            },
+            {
+                "q": "How many degrees are there in a right angle?",
+                "opts": ["45$^\\circ$", "90$^\\circ$", "180$^\\circ$", "360$^\\circ$"],
+                "ans": "B",
+                "explain": "A right angle measures exactly $90^\\circ$."
+            },
+            {
+                "q": "What is $1000 - 457$?",
+                "opts": ["453", "553", "543", "643"],
+                "ans": "C",
+                "explain": "$1000 - 457 = 543$."
             }
         ]
         item = random.choice(mcq_bank)
@@ -1303,7 +1640,26 @@ def build_question_for_topic(
     if "step_range" in topic_config:
         kwargs["step_range"] = topic_config["step_range"]
 
-    return method(**kwargs)
+    fixed_questions = kwargs.get("fixed_questions")
+    bypass_dedup = bool(fixed_questions and index < len(fixed_questions))
+
+    q = method(**kwargs)
+    if not bypass_dedup:
+        # Some generators draw from a small template/category pool (e.g. a
+        # handful of fixed shape names or scenario strings), so a run asking
+        # for more questions than there are distinct options can otherwise
+        # repeat the exact same question verbatim. Retry a bounded number of
+        # times until we get a prompt this QuestionBank hasn't produced yet
+        # for this topic; if the pool is well and truly exhausted, accept the
+        # last draw rather than looping forever.
+        seen = qb._seen_prompts.setdefault(topic, set())
+        attempts = 1
+        while q.prompt_tex in seen and attempts < 60:
+            q = method(**kwargs)
+            attempts += 1
+        seen.add(q.prompt_tex)
+
+    return q
 
 
 def tex_escape(text: str) -> str:
