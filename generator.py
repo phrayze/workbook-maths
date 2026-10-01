@@ -387,18 +387,34 @@ OBJ_3D_POOL = [
 ]
 
 
-def _select_shape_entry(pool: List[tuple], requested: Optional[List[str]]) -> tuple:
-    """Picks a random entry from `pool`, restricted to entries whose alias
-    list intersects `requested` (case-insensitive) when given. Falls back to
-    the full pool if `requested` is empty/None or matches nothing in this
-    tier - e.g. a 3d_objects config asking for a "cylinder" (not yet
-    implemented) still gets a valid question rather than an error."""
-    if requested:
-        wanted = {r.strip().lower() for r in requested if r and r.strip()}
-        filtered = [entry for entry in pool if wanted & set(entry[-1])]
-        if filtered:
-            return random.choice(filtered)
-    return random.choice(pool)
+def _draw_from_bag(bag: list, pool: List[tuple], requested: Optional[List[str]] = None) -> tuple:
+    """Pops a random entry from `bag` (a per-QuestionBank, per-tier list the
+    caller keeps across calls), refilling and reshuffling it from `pool`
+    whenever it runs dry. This samples *without* replacement within each lap
+    through the pool - e.g. a 3-item pool won't repeat the same category
+    twice before the other two have each appeared once, which plain
+    random.choice() each time can easily do (visually distinct TikZ
+    coordinates still make each draw's rendered prompt_tex unique even on a
+    later lap, but repeating the same shape/object back-to-back is still a
+    meaningful duplicate from the learner's point of view).
+
+    When `requested` is given, entries are restricted to those whose alias
+    list (pool[i][-1]) intersects it case-insensitively; an empty/no match
+    falls back to the full pool rather than erroring - e.g. a 3d_objects
+    config asking for a "cylinder" (not yet implemented) still gets a valid
+    question. The filtered pool is recomputed each refill so a mid-run
+    config change would be respected, though in practice `requested` is
+    fixed for the life of one QuestionBank."""
+    if not bag:
+        candidates = pool
+        if requested:
+            wanted = {r.strip().lower() for r in requested if r and r.strip()}
+            filtered = [entry for entry in pool if wanted & set(entry[-1])]
+            if filtered:
+                candidates = filtered
+        bag.extend(candidates)
+        random.shuffle(bag)
+    return bag.pop()
 
 
 # ------------------------------------------------------------------------
@@ -459,6 +475,12 @@ class QuestionBank:
         if seed is not None:
             random.seed(seed)
         self._seen_prompts: Dict[str, set] = {}
+        self._category_bags: Dict[str, list] = {}
+
+    def _draw(self, bag_key: str, pool: List[tuple], requested: Optional[List[str]] = None) -> tuple:
+        """Convenience wrapper around _draw_from_bag that keeps this
+        instance's per-bag_key state (see _draw_from_bag's docstring)."""
+        return _draw_from_bag(self._category_bags.setdefault(bag_key, []), pool, requested)
 
     def _meta(self, outcome_code: str) -> Dict[str, Any]:
         return OUTCOME_REGISTRY.get(outcome_code, {
@@ -1244,13 +1266,19 @@ class QuestionBank:
             solution = f"$x = 180^\\circ - {known_deg}^\\circ = \\mathbf{{{missing_deg}^\\circ}}$"
             answer_value = str(missing_deg)
         else:
-            angle_type = random.choice(["acute", "right", "obtuse"])
+            (angle_type,) = self._draw("angle_type", [("acute",), ("right",), ("obtuse",)])
             deg = random.randint(25, 75) if angle_type == "acute" else (90 if angle_type == "right" else random.randint(105, 155))
+            # "right" is always exactly 90 degrees, so without some other
+            # source of variety a repeated draw (once the acute/right/obtuse
+            # bag above completes a lap) would render byte-identical TikZ -
+            # jitter the ray length/arc radius slightly so it never does.
+            ray_len = round(random.uniform(1.8, 2.2), 2)
+            arc_r = round(random.uniform(0.35, 0.45), 2)
             prompt = (
                 f"Classify this angle (Acute, Right, or Obtuse):\\\\[0.5em]\n"
                 f"\\begin{{tikzpicture}}[scale=0.7]\n"
-                f"  \\draw[thick,<->] (2,0) -- (0,0) -- ({deg}:2);\n"
-                f"  \\draw[fill=gray!30] (0,0) -- (0.4,0) arc (0:{deg}:0.4) -- cycle;\n"
+                f"  \\draw[thick,<->] ({ray_len},0) -- (0,0) -- ({deg}:{ray_len});\n"
+                f"  \\draw[fill=gray!30] (0,0) -- ({arc_r},0) arc (0:{deg}:{arc_r}) -- cycle;\n"
                 f"\\end{{tikzpicture}}\\\\[0.5em]\n"
                 f"Angle Type: \\underline{{\\hspace{{3cm}}}}"
             )
@@ -1283,7 +1311,7 @@ class QuestionBank:
         meta = self._meta(code)
 
         if diff == "easy":
-            s_name, sides, _ = _select_shape_entry(EASY_2D_SHAPES, shapes)
+            s_name, sides, _ = self._draw("2d_easy", EASY_2D_SHAPES, shapes)
             diagram = _tikz_regular_polygon(sides)
             prompt = f"How many sides does this shape have?\\\\[0.4em]\n{diagram}\\\\[0.3em]\nSides: \\underline{{\\hspace{{2cm}}}}"
             solution = f"A {s_name} has $\\mathbf{{{sides}}}$ sides."
@@ -1301,13 +1329,13 @@ class QuestionBank:
             solution = f"$\\text{{Total Area}} = ({l1} \\times {w1}) + ({l2} \\times {w2}) = {l1*w1} + {l2*w2} = \\mathbf{{{area}\\text{{ cm}}^2}}$"
             answer_value = str(area)
         elif diff == "hard":
-            t_name, _ = _select_shape_entry(HARD_2D_TRIANGLES, shapes)
+            t_name, _ = self._draw("2d_hard", HARD_2D_TRIANGLES, shapes)
             diagram = _tikz_triangle(t_name)
             prompt = f"Classify the triangle shown below (Equilateral, Isosceles, or Scalene):\\\\[0.4em]\n{diagram}\\\\[0.3em]\nClassification: \\underline{{\\hspace{{3cm}}}}"
             solution = f"\\textbf{{{t_name} Triangle}}"
             answer_value = t_name
         else:
-            name, _ = _select_shape_entry(MEDIUM_2D_QUADS, shapes)
+            name, _ = self._draw("2d_medium", MEDIUM_2D_QUADS, shapes)
             diagram = _tikz_quadrilateral(name)
             prompt = f"Name the quadrilateral shown below:\\\\[0.4em]\n{diagram}\\\\[0.3em]\nName: \\underline{{\\hspace{{3cm}}}}"
             solution = f"\\textbf{{{name}}}"
@@ -1350,7 +1378,7 @@ class QuestionBank:
             solution = f"$\\text{{Volume}} = {vol}\\text{{ cm}}^3 \\implies \\text{{Capacity}} = \\mathbf{{{cap_l:.2f}\\text{{ L}}}}$"
             answer_value = f"{cap_l:.2f}"
         else:
-            name, faces, f_type, _ = _select_shape_entry(OBJ_3D_POOL, objects_3d)
+            name, faces, f_type, _ = self._draw("3d_objects", OBJ_3D_POOL, objects_3d)
             if name == "Cube":
                 s = round(random.uniform(1.3, 1.7), 2)
                 diagram = _tikz_cuboid(s, s)
@@ -1442,7 +1470,7 @@ class QuestionBank:
                 ("a total that is a multiple of 3 when two fair 6-sided dice are rolled together", 12, 36, "36 equally likely pairs", "totals of 3, 6, 9 or 12"),
                 ("at least one 6 showing when two fair 6-sided dice are rolled together", 11, 36, "36 equally likely pairs", "any pair containing a 6"),
             ]
-            desc, favourable, total, outcomes, fav_list = random.choice(genius_bank)
+            desc, favourable, total, outcomes, fav_list = self._draw("chance_genius", genius_bank)
             g = math.gcd(favourable, total)
             prompt = f"What is the probability of getting {desc}? Express as a fraction in simplest form."
             solution = f"Possible outcomes: {outcomes}. Favourable: {fav_list}. $\\text{{Probability}} = \\dfrac{{{favourable}}}{{{total}}} = \\mathbf{{\\dfrac{{{favourable//g}}}{{{total//g}}}}}$."
@@ -1462,7 +1490,7 @@ class QuestionBank:
                 ("a number that is at least 4 on a standard 6-sided die", 3),
                 ("a square number (1 or 4) on a standard 6-sided die", 2),
             ]
-            desc, favourable = random.choice(hard_bank)
+            desc, favourable = self._draw("chance_hard", hard_bank)
             g = math.gcd(favourable, 6)
             prompt = f"What is the probability of rolling {desc}? Express as a fraction."
             solution = f"$\\mathbf{{\\dfrac{{{favourable}}}{{6}} = \\dfrac{{{favourable//g}}}{{{6//g}}}}}$"
@@ -1486,7 +1514,7 @@ class QuestionBank:
                 ("Most students in a class finish their homework most weeks. Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} that most of the class finishes homework this week?", "Likely", "\\textbf{Likely} (this matches the usual pattern for the class)"),
                 ("Is it \\textbf{Certain}, \\textbf{Likely}, \\textbf{Unlikely}, or \\textbf{Impossible} to find a fish that can ride a bicycle?", "Impossible", "\\textbf{Impossible} (fish cannot ride bicycles)"),
             ]
-            prompt, answer_value, solution = random.choice(medium_bank)
+            prompt, answer_value, solution = self._draw("chance_medium", medium_bank)
 
         return Question(
             section=meta["focus_area"], topic="chance", outcome_code=code,
@@ -1694,7 +1722,7 @@ class QuestionBank:
                 "explain": "$1000 - 457 = 543$."
             }
         ]
-        item = random.choice(mcq_bank)
+        item = self._draw("mcq_bank", mcq_bank)
         prompt = f"{item['q']}\\\\[0.3em]\n\\begin{{enumerate}}[label=(\\Alph*), itemsep=0pt]\n"
         for opt in item['opts']:
             prompt += f"  \\item {opt}\n"
