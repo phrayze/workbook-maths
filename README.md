@@ -13,7 +13,8 @@ A NESA 2022-aligned pipeline that turns a YAML config into a LaTeX practice work
 | `build_workbook.py` | CLI: config.yaml → LaTeX → PDF (via `latexmk`) |
 | `config-template.yaml` | Documented reference config covering every topic — copy from this |
 | `config.yaml` | The config actually used by `build_workbook.py` / the web app |
-| `maths-curriculum-ks1_2_3.csv` | The curriculum question bank — see [Curriculum Alignment](#curriculum-alignment-the-question-bank) |
+| `maths-curriculum-ks1_2_3.csv` | The curriculum outcome catalogue — see [Curriculum Alignment](#curriculum-alignment-the-question-bank) |
+| `question_bank_data.yaml` | User-extensible question bank — add new topics with no Python, see [Extending the Question Bank](#extending-the-question-bank) |
 | `methods_guide.tex.j2`, `build_methods_guide.py` | Standalone "how to do it" reference PDF — see [Methods & Reference Guide](#methods--reference-guide) |
 | `app.py`, `question_bank.py`, `mcq_utils.py`, `results_store.py` | The web app: picker UI, CSV catalogue loader, MCQ/distractor generation, results history |
 | `templates/`, `static/` | Web app HTML/CSS/JS |
@@ -94,7 +95,7 @@ Put a reverse proxy (nginx/Caddy) in front if you want TLS/a domain, or run it o
 | `Difficulty` | Which difficulty tier(s) of that topic this code maps to (`easy`/`medium`/`hard`/`genius`) |
 | `Practice Area` | The UI/workbook grouping this topic belongs to |
 
-The web app (`question_bank.py`) reads this file to build the picker and to show each topic's outcome codes. Rows with no `Topic` are documented curriculum coverage that has no generator implemented yet (e.g. mass, decimals-as-its-own-topic, coordinate geometry).
+The web app (`question_bank.py`) reads this file to build the picker and to show each topic's outcome codes. Rows with no `Topic` are documented curriculum coverage that has no generator implemented yet (e.g. mass, decimals-as-its-own-topic) — see [Extending the Question Bank](#extending-the-question-bank) if you want to fill one of these in yourself.
 
 Topics are grouped into 8 **Practice Areas**, which are also the section titles in `config-template.yaml`:
 
@@ -103,7 +104,7 @@ Topics are grouped into 8 **Practice Areas**, which are also the section titles 
 3. Fractions & Decimals — `fractions`
 4. Patterns & Algebra — `sequences`, `algebra`
 5. Measurement & Time — `reading_time`, `date_duration`, `speed_distance`
-6. Geometry & Shape — `geometry_angles`, `2d_shapes`, `3d_objects`
+6. Geometry & Shape — `geometry_angles`, `2d_shapes`, `3d_objects`, `compass_directions`
 7. Statistics & Probability — `data`, `chance`
 8. General Quiz — `multiple_choice`
 
@@ -115,13 +116,17 @@ Several topics render an actual diagram rather than plain text, generated with T
 
 ## Configuring `config.yaml` (from `config-template.yaml`)
 
-Start by copying the template, then trim it down to what you want:
+`config.yaml` is the one file both the CLI and the web app read — `config-template.yaml` is a fully-documented reference copy covering every topic and option, meant to be trimmed down rather than used directly. Here's the end-to-end flow for creating and customising your own:
+
+### Step 1 — Copy the template
 
 ```bash
 cp config-template.yaml config.yaml
 ```
 
-Top-level fields:
+You can stop here and build immediately (`python3 build_workbook.py`) — the template is a complete, working config on its own. Everything below is about shaping it to what you actually want.
+
+### Step 2 — Set the global options at the top
 
 ```yaml
 title: "Stage 2 Mathematics Practice Workbook"
@@ -136,21 +141,48 @@ arithmetic_column_width: "2ex"  # xlop's horizontal gap between digit columns in
 arithmetic_line_height: 1.0     # multiplier on \baselineskip for xlop's vertical gap between rows (default 1.0)
 ```
 
-Then a `sections` list — each section is one Practice Area, with a `topics` map of `topic: {count, difficulty, ...}`:
+`seed: null` means a different random workbook every build; set an integer once you've got a sheet you like and want to reproduce it (e.g. to regenerate the exact same PDF later, or hand two students different seeds of the same difficulty mix).
+
+### Step 3 — Decide which Practice Areas and topics you want
+
+The template ships with all 8 Practice Areas (`sections`), each a block like this:
 
 ```yaml
 sections:
   - title: "2. Column Arithmetic"
+    description: "Solve each vertical problem carefully in the space provided."
     layout: "grid_3col"        # or "list"
     working_space: "3.5cm"     # optional per-section override
     topics:
       vertical_addition:
         count: 6
-        digits: 3
         difficulty: "medium"   # easy | medium | hard | genius — see the CSV for the outcome code this maps to
+      vertical_subtraction:
+        count: 6
+        difficulty: "medium"
 ```
 
-A few topics take extra parameters beyond `count`/`difficulty` — these are documented inline in `config-template.yaml` next to each topic:
+Delete whole `sections` entries you don't want, or delete individual topics within a section's `topics` map. Leave the ones you want and move on to Step 4. (If you'd rather do this visually than hand-edit YAML, run the web app instead — `python3 app.py` — and use the checkboxes in the picker; it writes exactly this structure to `config.yaml` for you, see [Running the Web App](#running-the-web-app).)
+
+### Step 4 — Tune each topic's count, difficulty, and options
+
+For every topic you kept:
+
+- `count` — how many questions of that topic to generate.
+- `difficulty` — `easy` / `medium` / `hard` / `genius`. Roughly Stage 1 / Stage 2 / Stage 3 / extension — see [Curriculum Alignment](#curriculum-alignment-the-question-bank) for the exact outcome code each maps to.
+- Anything else — most topics take nothing further, but quite a few have extra knobs (times tables to target, which shapes to draw, operation type, and so on) — these are documented inline in `config-template.yaml` right next to each topic, and summarised just below.
+
+### Step 5 — Build it
+
+```bash
+python3 build_workbook.py --config config.yaml --output output/workbook.pdf
+```
+
+See [Generating a Workbook](#generating-a-workbook-cli) below for the CLI flags, or use the web app's **Save & Generate PDF** button, which does the same thing after writing your picker selections to `config.yaml`.
+
+### Topic-specific options reference
+
+A few topics take extra parameters beyond `count`/`difficulty` (Step 4 above) — these are documented inline in `config-template.yaml` next to each topic:
 
 - **Times table / divisor targeting**: `vertical_multiplication` and `long_division` accept `times_table: 3` (or a list `[2, 3, 4]`) to target specific facts.
 - **Specific shapes/objects**: `2d_shapes` accepts `shapes: [...]` (e.g. `["hexagon", "octagon"]`) and `3d_objects` accepts `objects_3d: [...]` (e.g. `["cube", "cuboid"]`) to restrict which shape/solid gets drawn, instead of a fully random pick. Each is matched against whatever vocabulary applies to the chosen `difficulty` tier (see the comments in `config-template.yaml`); an unmatched or empty list falls back to the full tier vocabulary rather than erroring.
@@ -182,8 +214,49 @@ The quiz is marked instantly in the browser. Results are broken down **by topic/
 
 ## Extending the Question Bank
 
-Everything today is deterministic, rule-based Python in `generator.py` — random numbers plugged into templates, with the answer computed alongside the question so correctness is guaranteed by construction. There's no LLM and no network call anywhere in the pipeline. Two ways to go further, in increasing order of effort:
+Everything today is deterministic, rule-based Python/YAML — random numbers (or random picks from a bank) plugged into templates, with the answer computed alongside the question so correctness is guaranteed by construction. There's no LLM and no network call anywhere in the pipeline. Three ways to add more content, in increasing order of effort:
 
-1. **Pin specific questions (already supported).** Most `generate_*` methods accept a `fixed_questions:` list in config.yaml — either raw values (e.g. `{top: 458, bottom: 279}`) or a full override (`{prompt: "...", solution: "..."}`), consumed in order instead of randomising. See the commented examples in `config-template.yaml`.
-2. **A bigger curated question bank (still deterministic, not yet built).** For more than a handful of hand-authored questions per topic, add a CSV/JSON file per topic and a loader that samples from it, falling back to procedural generation once exhausted. Low risk, no new dependencies, stays fully offline.
-3. **LLM-generated questions (a bigger architectural change).** This would call an LLM per question (topic/difficulty/outcome code → prompt/solution/answer), which means a network dependency, an API key, per-generation cost/latency, and — the hard part — correctness verification: today's answer is trustworthy *because* the same code that built the question also computed the answer. An LLM-authored question needs either a verification pass or blind trust in the model, plus LaTeX-safety sanitization before anything reaches `pdflatex`. Worth it only if you specifically want open-ended word-problem phrasing that templates can't produce — not a drop-in addition.
+1. **Pin specific questions onto an existing topic.** Most `generate_*` methods accept a `fixed_questions:` list in config.yaml — either raw values (e.g. `{top: 458, bottom: 279}`) or a full override (`{prompt: "...", solution: "..."}`), consumed in order instead of randomising. See the commented examples in `config-template.yaml`.
+2. **Add a brand-new topic — no Python required.** This is `question_bank_data.yaml`, described below. Good for anything a fixed set of pre-written questions and/or a simple parameterised template can cover — the compass/bearings topic shipped with the project (`compass_directions`) is a worked example.
+3. **LLM-generated questions (a bigger architectural change, not built).** This would call an LLM per question (topic/difficulty/outcome code → prompt/solution/answer), which means a network dependency, an API key, per-generation cost/latency, and — the hard part — correctness verification: today's answer is trustworthy *because* the same code that built the question also computed the answer. An LLM-authored question needs either a verification pass or blind trust in the model, plus LaTeX-safety sanitization before anything reaches `pdflatex`. Worth it only if you specifically want open-ended word-problem phrasing that templates can't produce — not a drop-in addition.
+
+### Adding New Question Types (`question_bank_data.yaml`)
+
+This file defines entire new topics declaratively — add it to the YAML and the topic immediately works everywhere a built-in topic does: `config.yaml`/`config-template.yaml`, the web picker (grouped under whatever `practice_area` you give it, with outcome-code chips pulled from the CSV), PDF generation, the answer key, and — if the answer shape suits it — the online MCQ quiz. No code change, no restart-and-register step. A topic name here never overrides a built-in Python topic of the same name; the hand-written generator always wins on a name clash.
+
+Each topic has one or more difficulty tiers, and each tier is a bank of two kinds of entries:
+
+- **`exact`** — a fully pre-written question (`prompt`, `solution`, `answer_value`). Used verbatim. Good for "I just want these specific 5 questions in the bank."
+- **`generate`** — a parameterised template that produces many different random questions from one definition:
+  - `params`: each is drawn randomly — `{type: choice, values: [...]}` picks one of a list, `{type: int_range, min: a, max: b}` picks a random integer.
+  - `compute` (optional): derives further values from the params via a plain Python expression (evaluated top-to-bottom, so later entries can reference earlier ones) — restricted to no builtins, just your params/computed-so-far values plus a small helper set (`CARDINAL4`, `COMPASS8`, `CARDINAL_VECTOR`, `abs`/`min`/`max`/`round`/`int`/`len`). This file is trusted/author-edited — the same trust level as `config.yaml` — not a sandbox for untrusted input.
+  - `prompt`/`solution`/`answer_value`: Python `str.format()` templates filled in from params + computed values. Since this is LaTeX, a literal brace must be doubled (`{{`/`}}`) exactly like generator.py's own f-strings — e.g. `"\\textbf{{{answer}}}"` renders `\textbf{South}`. Format specs work too, e.g. `"{bearing:03d}"` zero-pads to 3 digits.
+
+Both kinds of entries within a tier are sampled without repeats (the same round-robin mechanism every topic uses) until the bank's exhausted, same as the built-in topics' category pools.
+
+Minimal example — add this to `question_bank_data.yaml` to create a new "doubling" topic with no Python at all:
+
+```yaml
+topics:
+  doubling:
+    practice_area: "Patterns & Algebra"   # must be one of the 8 existing areas, or a new one (appended automatically)
+    default_count: 3
+    outcomes:
+      medium: { code: "MA2-MR-01", stage: 2 }   # optional - omit to just fall back to a generic Mathematics label
+    bank:
+      medium:
+        exact:
+          - prompt: "Double 7."
+            solution: "$7 \\times 2 = \\mathbf{14}$"
+            answer_value: "14"
+        generate:
+          - prompt: "Double {n}."
+            params:
+              n: { type: int_range, min: 2, max: 50 }
+            compute:
+              answer: "n * 2"
+            solution: "${n} \\times 2 = \\mathbf{{{answer}}}$"
+            answer_value: "{answer}"
+```
+
+The shipped `compass_directions` topic (Geometry & Shape) is a fuller real example — four difficulty tiers mixing `exact` and `generate` entries, including a `compute` step that indexes into `CARDINAL_VECTOR`/`COMPASS8` to turn a direction + a turn amount into a new direction, grid coordinates, or a three-figure bearing. Worth reading alongside this section if you're writing something beyond a one-line formula.

@@ -4,8 +4,11 @@ stage: 1
 header_left: NSW Primary Mathematics Practice
 seed: null
 include_solutions: true
-font_size: 14pt
+font_size: "14pt"
 working_space: 2.5cm
+arithmetic_column_width: "3ex"         # Horizontal gap between digit columns (xlop default: 2ex). Try 2.5ex-3.5ex for more room.
+arithmetic_line_height: 2.0            # Multiplier on \baselineskip for the vertical gap between rows (xlop default: 1.0). Try 1.2-1.5 for more room.
+
 sections:
 - title: Number & Place Value
   description: ''
@@ -36,8 +39,8 @@ sections:
       digits_top: 3
       digits_bottom: 1
       times_table:
-      - 2
       - 3
+      - 4
     long_division:
       count: 1
       difficulty: easy

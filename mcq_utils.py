@@ -19,6 +19,7 @@ CATEGORY_BANKS: Dict[str, List[str]] = {
     "chance": ["Certain", "Likely", "Unlikely", "Impossible"],
     "data": ["Apples", "Bananas", "Oranges", "Grapes", "Pears"],
     "geometry_angles": ["Acute", "Right", "Obtuse", "Reflex"],
+    "compass_directions": ["North", "East", "South", "West", "North-East", "South-East", "South-West", "North-West"],
 }
 
 _FRACTION_RE = re.compile(r"^\d+/\d+$")
@@ -29,6 +30,9 @@ _NUM_RE = re.compile(r"^-?\d+(\.\d+)?$")
 def _numeric_distractors(value: str, count: int) -> List[str]:
     n = float(value)
     is_int = n.is_integer()
+    # Preserve zero-padded widths like "090" (compass bearings) - otherwise
+    # the correct answer would be the only option visibly padded.
+    zero_pad_width = len(value) if is_int and value.lstrip("-").startswith("0") and len(value.lstrip("-")) > 1 else 0
     magnitude = max(abs(n), 1)
     step = max(1, round(magnitude * 0.1))
     candidates = set()
@@ -48,7 +52,10 @@ def _numeric_distractors(value: str, count: int) -> List[str]:
     random.shuffle(results)
     out = []
     for v in results[:count]:
-        out.append(str(int(v)) if is_int else f"{v:.2f}")
+        if is_int:
+            out.append(str(int(v)).zfill(zero_pad_width) if zero_pad_width else str(int(v)))
+        else:
+            out.append(f"{v:.2f}")
     return out
 
 

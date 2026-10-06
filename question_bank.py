@@ -2,6 +2,8 @@ import csv
 import os
 from typing import Any, Dict, List
 
+from generator import CUSTOM_TOPIC_BANK
+
 CSV_PATH = os.path.join(os.path.dirname(__file__), "maths-curriculum-ks1_2_3.csv")
 
 # Single source of truth for what the web picker offers per topic. Practice
@@ -33,6 +35,18 @@ PRACTICE_AREA_ORDER: List[str] = [
     "Number & Place Value", "Column Arithmetic", "Fractions & Decimals", "Patterns & Algebra",
     "Measurement & Time", "Geometry & Shape", "Statistics & Probability", "General Quiz",
 ]
+
+# question_bank_data.yaml topics (see generator.py) join the same catalogue
+# the web picker reads from - a topic already defined above always wins, so
+# a bank file can never silently override a built-in topic's UI metadata.
+for _topic_name, _bank_topic in CUSTOM_TOPIC_BANK.items():
+    TOPIC_CATALOGUE.setdefault(_topic_name, {
+        "practice_area": _bank_topic.get("practice_area", "General Quiz"),
+        "layout_hint": _bank_topic.get("layout_hint", "list"),
+        "default_count": _bank_topic.get("default_count", 3),
+    })
+    if TOPIC_CATALOGUE[_topic_name]["practice_area"] not in PRACTICE_AREA_ORDER:
+        PRACTICE_AREA_ORDER.append(TOPIC_CATALOGUE[_topic_name]["practice_area"])
 
 STAGE_DEFAULT_DIFFICULTY: Dict[int, str] = {1: "easy", 2: "medium", 3: "hard"}
 

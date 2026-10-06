@@ -267,6 +267,13 @@ sections:
         # fully random.
         # objects_3d: ["cube", "cuboid"]
 
+      # Compass Directions & Bearings - a topic defined entirely in
+      # question_bank_data.yaml (no Python), demonstrating the user-extensible
+      # question bank: see README.md's "Adding New Question Types" section.
+      compass_directions:
+        count: 2
+        difficulty: "medium"          # Options: easy (opposite directions: MA1-GM-01), medium (compass turns: MA2-GM-01), hard (coordinate movement)/genius (three-figure bearings: MA3-GM-01)
+
   # ----------------------------------------------------------------------------
   # SECTION 7: STATISTICS & PROBABILITY
   # Outcomes: MA1-DATA-01, MA2-DATA-01, MA3-DATA-01, MA1-CHAN-01, MA2-CHAN-01, MA3-CHAN-01

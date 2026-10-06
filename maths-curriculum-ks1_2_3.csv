@@ -27,13 +27,13 @@ MA3-RQF-02,3,Fractions,"determines 1/2, 1/4, 1/5 and 1/10 of measures and quanti
 MAE-GM-01,ES1,Geometric measure,describes position and gives and follows simple directions,,,
 MAE-GM-02,ES1,Geometric measure,describes and compares lengths,,,
 MAE-GM-03,ES1,Geometric measure,identifies half the length and the halfway point,,,
-MA1-GM-01,1,Geometric measure,represents and describes the positions of objects in familiar locations,,,
+MA1-GM-01,1,Geometric measure,represents and describes the positions of objects in familiar locations,compass_directions,easy,Geometry & Shape
 MA1-GM-02,1,Geometric measure,"measures, records, compares and estimates lengths and distances using uniform informal units, as well as metres and centimetres",,,
 MA1-GM-03,1,Geometric measure,"creates and recognises halves, quarters and eighths as part measures of a whole length",,,
-MA2-GM-01,2,Geometric measure,uses grid maps and directional language to locate positions and follow routes,,,
+MA2-GM-01,2,Geometric measure,uses grid maps and directional language to locate positions and follow routes,compass_directions,medium,Geometry & Shape
 MA2-GM-02,2,Geometric measure,"measures and estimates lengths in metres, centimetres and millimetres",speed_distance,"easy, medium",Measurement & Time
 MA2-GM-03,2,Geometric measure,identifies angles and classifies them by comparing to a right angle,geometry_angles,"easy, medium",Geometry & Shape
-MA3-GM-01,3,Geometric measure,locates and describes points on a coordinate plane,,,
+MA3-GM-01,3,Geometric measure,locates and describes points on a coordinate plane,compass_directions,"hard, genius",Geometry & Shape
 MA3-GM-02,3,Geometric measure,selects and uses the appropriate unit and device to measure lengths and distances including perimeters,speed_distance,"hard, genius",Measurement & Time
 MA3-GM-03,3,Geometric measure,"measures and constructs angles, and identifies the relationships between angles on a straight line and angles at a point",geometry_angles,"hard, genius",Geometry & Shape
 MAE-2DS-01,ES1,Two-dimensional (2D) spatial structure,"sorts, describes, names and makes two-dimensional shapes, including triangles, circles, squares and rectangles",,,

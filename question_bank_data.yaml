@@ -1,0 +1,120 @@
+# ==============================================================================
+# User-extensible question bank
+# ==============================================================================
+# Add a brand-new topic here - no Python required - and it becomes available
+# in config.yaml/config-template.yaml (and the web picker) exactly like any
+# built-in topic in generator.py: give it a `count` and `difficulty` and it's
+# in the workbook.
+#
+# Each topic can mix two kinds of entries per difficulty tier:
+#
+#   exact:    a fully pre-written question. Used verbatim, sampled without
+#             repeats (same round-robin "bag" mechanism as every other topic)
+#             until the pool is exhausted, then it starts a fresh lap.
+#
+#   generate: a parameterised template that produces many different random
+#             questions from one definition. `params` are drawn randomly
+#             (type: choice picks from a list; type: int_range picks a
+#             random integer in [min, max]); `compute` can then derive extra
+#             values from them via a plain Python expression (see "Safe
+#             eval" below); `prompt`/`solution`/`answer_value` are Python
+#             str.format() templates filled in from params + computed values.
+#
+# str.format() escaping: this is the exact same convention generator.py's own
+# f-strings use everywhere - a literal LaTeX brace must be doubled ({{ or }}),
+# a single { or } is a placeholder. E.g. to render \textbf{South}, write
+# "\\textbf{{{answer}}}" (literal {, then the {answer} placeholder, then a
+# literal }). Format specs work too, e.g. "{bearing:03d}" zero-pads to 3
+# digits.
+#
+# Safe eval: `compute` expressions run through a restricted eval() - no
+# builtins, only the params you defined (plus earlier `compute` entries,
+# evaluated top to bottom) and a small helper set: CARDINAL4 (list of the 4
+# cardinal directions), COMPASS8 (8-point compass), CARDINAL_VECTOR (dict:
+# direction name -> (dx, dy) unit vector), and abs/min/max/round/int/len.
+# This file is trusted/author-edited - same trust level as config.yaml - not
+# a sandbox for untrusted/web input.
+#
+# A topic name here never overrides a built-in Python topic of the same
+# name - the hand-written generator always wins if there's a clash.
+# ==============================================================================
+
+topics:
+
+  compass_directions:
+    practice_area: "Geometry & Shape"
+    layout_hint: "list"
+    default_count: 2
+    outcomes:
+      easy:   { code: "MA1-GM-01", stage: 1 }
+      medium: { code: "MA2-GM-01", stage: 2 }
+      hard:   { code: "MA3-GM-01", stage: 3 }
+      genius: { code: "MA3-GM-01", stage: 3 }
+    bank:
+
+      easy:
+        exact:
+          - prompt: "On a compass, which direction is directly opposite North?"
+            solution: "North and South are opposite directions. The opposite of North is $\\textbf{South}$."
+            answer_value: "South"
+          - prompt: "On a compass, which direction is directly opposite East?"
+            solution: "East and West are opposite directions. The opposite of East is $\\textbf{West}$."
+            answer_value: "West"
+        generate:
+          - prompt: "On a compass, which direction is directly opposite {start}?"
+            params:
+              start: { type: choice, values: ["North", "East", "South", "West"] }
+            compute:
+              answer: "CARDINAL4[(CARDINAL4.index(start) + 2) % 4]"
+            solution: "The opposite of {start} is $\\textbf{{{answer}}}$."
+            answer_value: "{answer}"
+
+      medium:
+        exact:
+          - prompt: "A compass needle points North. You turn $90^\\circ$ clockwise. Which direction do you now face?"
+            solution: "Turning $90^\\circ$ clockwise from North lands on $\\textbf{East}$."
+            answer_value: "East"
+          - prompt: "You are facing East and turn $180^\\circ$. Which direction do you now face?"
+            solution: "A $180^\\circ$ turn is a half-turn, so East becomes $\\textbf{West}$."
+            answer_value: "West"
+        generate:
+          - prompt: "Facing {start}, you turn {turn_deg}$^\\circ$ clockwise. Which direction do you now face?"
+            params:
+              start: { type: choice, values: ["North", "North-East", "East", "South-East", "South", "South-West", "West", "North-West"] }
+              clicks: { type: choice, values: [1, 2, 3, 5, 6, 7] }
+            compute:
+              turn_deg: "clicks * 45"
+              answer: "COMPASS8[(COMPASS8.index(start) + clicks) % 8]"
+            solution: "Turning {turn_deg}$^\\circ$ clockwise from {start} lands on $\\textbf{{{answer}}}$."
+            answer_value: "{answer}"
+
+      hard:
+        exact:
+          - prompt: "A hiker starts at grid point $(0,0)$ facing North and walks 4 squares forward. What are their new coordinates?"
+            solution: "Walking North increases the $y$-coordinate: $(0,0) \\to (0,4)$. New coordinates: $\\mathbf{(0,4)}$."
+            answer_value: "(0,4)"
+        generate:
+          - prompt: "A hiker starts at grid point $(0,0)$ facing {start_dir} and walks {steps} squares forward. What are their new coordinates?"
+            params:
+              start_dir: { type: choice, values: ["North", "East", "South", "West"] }
+              steps: { type: int_range, min: 2, max: 6 }
+            compute:
+              dx: "CARDINAL_VECTOR[start_dir][0] * steps"
+              dy: "CARDINAL_VECTOR[start_dir][1] * steps"
+            solution: "Walking {steps} squares {start_dir} moves $(0,0) \\to ({dx},{dy})$. New coordinates: $\\mathbf{{({dx},{dy})}}$."
+            answer_value: "({dx},{dy})"
+
+      genius:
+        exact:
+          - prompt: "What is the three-figure bearing for due East? (North $= 000^\\circ$, East $= 090^\\circ$, measured clockwise)"
+            solution: "Bearings are measured clockwise from North. East is a quarter-turn ($90^\\circ$) clockwise: $\\mathbf{090^\\circ}$."
+            answer_value: "090"
+        generate:
+          - prompt: "A ship is sailing on a bearing of {start_bearing:03d}$^\\circ$. It turns {turn_deg}$^\\circ$ clockwise. What is its new three-figure bearing?"
+            params:
+              start_bearing: { type: choice, values: [0, 45, 90, 135, 180, 225, 270, 315] }
+              turn_deg: { type: choice, values: [45, 90, 135, 180, 225, 270, 315] }
+            compute:
+              new_bearing: "(start_bearing + turn_deg) % 360"
+            solution: "New bearing $= ({start_bearing}^\\circ + {turn_deg}^\\circ) \\bmod 360^\\circ = \\mathbf{{{new_bearing:03d}^\\circ}}$."
+            answer_value: "{new_bearing:03d}"

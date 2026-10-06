@@ -4,6 +4,7 @@ import os
 import csv
 import re
 import calendar
+import yaml
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field
@@ -466,6 +467,52 @@ def _calendar_block_for_range(start_date: datetime, end_date: datetime) -> str:
             marks[end_date.day] = "start" if marks.get(end_date.day) == "start" else "end"
         blocks.append(_month_calendar_tex(y, m, marks))
     return "\\\\[0.6em]\n".join(blocks)
+
+
+# ------------------------------------------------------------------------
+# User-extensible question bank (question_bank_data.yaml). Lets you add a
+# brand new topic - both exact, pre-written questions and parameterised
+# "generate" templates that produce many random variants - without touching
+# any Python. See README.md's "Adding New Question Types" section.
+#
+# This file is trusted/author-edited, the same trust level as config.yaml:
+# a `generate` entry's `compute` expressions run through a restricted
+# eval() (no builtins, only the params you defined plus a small set of
+# helper constants/functions below) so a typo gives you a clear Python
+# error rather than silently doing nothing - but it is NOT a sandbox for
+# untrusted input, so don't wire this file up to accept arbitrary web input.
+# ------------------------------------------------------------------------
+
+_BANK_SAFE_GLOBALS: Dict[str, Any] = {
+    "CARDINAL4": ["North", "East", "South", "West"],
+    "COMPASS8": ["North", "North-East", "East", "South-East", "South", "South-West", "West", "North-West"],
+    "CARDINAL_VECTOR": {"North": (0, 1), "East": (1, 0), "South": (0, -1), "West": (-1, 0)},
+    "abs": abs, "min": min, "max": max, "round": round, "int": int, "len": len,
+}
+
+
+def _safe_eval(expr: str, context: Dict[str, Any]) -> Any:
+    """Evaluates one `compute` expression from question_bank_data.yaml with
+    no access to builtins - only _BANK_SAFE_GLOBALS and whatever params/
+    earlier-compute-steps are already in `context`."""
+    namespace = {**_BANK_SAFE_GLOBALS, **context}
+    return eval(expr, {"__builtins__": {}}, namespace)  # noqa: S307 - restricted namespace, trusted file (see module docstring above)
+
+
+def _load_question_bank_data() -> Dict[str, Dict[str, Any]]:
+    path = os.path.join(os.path.dirname(__file__), "question_bank_data.yaml")
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except yaml.YAMLError as e:
+        print(f"Warning: Could not parse question_bank_data.yaml: {e}")
+        return {}
+    return data.get("topics", {}) or {}
+
+
+CUSTOM_TOPIC_BANK: Dict[str, Dict[str, Any]] = _load_question_bank_data()
 
 
 class QuestionBank:
@@ -1736,6 +1783,74 @@ class QuestionBank:
             q_type="mcq", prompt_tex=prompt, solution_tex=solution, answer_value=item['ans'], layout_hint="list"
         )
 
+    # 18. User-extensible question bank topics (question_bank_data.yaml)
+    def generate_from_bank(
+        self,
+        topic: str,
+        difficulty: str = "medium",
+        fixed_questions: Optional[List[Dict[str, Any]]] = None,
+        index: int = 0
+    ) -> Question:
+        diff = self._norm_diff(difficulty)
+        bank_topic = CUSTOM_TOPIC_BANK.get(topic)
+        if not bank_topic:
+            raise ValueError(f"No question_bank_data.yaml entry for topic '{topic}'")
+
+        tier = bank_topic.get("bank", {}).get(diff) or bank_topic.get("bank", {}).get("medium") or {}
+        outcome_info = bank_topic.get("outcomes", {}).get(diff) or bank_topic.get("outcomes", {}).get("medium") or {}
+        code = outcome_info.get("code", "")
+        if code and code in OUTCOME_REGISTRY:
+            meta = self._meta(code)
+        else:
+            meta = {
+                "stage": outcome_info.get("stage", 2),
+                "focus_area": bank_topic.get("practice_area", "Mathematics"),
+                "capability": outcome_info.get("capability", ""),
+            }
+        q_type = bank_topic.get("q_type", "math")
+        layout_hint = bank_topic.get("layout_hint", "list")
+
+        if fixed_questions and index < len(fixed_questions):
+            fq = fixed_questions[index]
+            if "prompt" in fq and "solution" in fq:
+                return Question(
+                    section=meta["focus_area"], topic=topic, outcome_code=code,
+                    focus_area=meta["focus_area"], capability=meta.get("capability", ""),
+                    prompt_tex=fq["prompt"], solution_tex=fq["solution"], layout_hint=layout_hint
+                )
+
+        entries = [("exact", e) for e in tier.get("exact", [])] + [("generate", e) for e in tier.get("generate", [])]
+        if not entries:
+            raise ValueError(f"question_bank_data.yaml topic '{topic}' has no entries for difficulty '{diff}'")
+
+        kind, entry = self._draw(f"bank_{topic}_{diff}", entries)
+
+        if kind == "exact":
+            prompt = entry["prompt"]
+            solution = entry["solution"]
+            answer_value = str(entry.get("answer_value", ""))
+        else:
+            ctx: Dict[str, Any] = {}
+            for name, spec in (entry.get("params") or {}).items():
+                ptype = spec.get("type")
+                if ptype == "choice":
+                    ctx[name] = random.choice(spec["values"])
+                elif ptype == "int_range":
+                    ctx[name] = random.randint(spec["min"], spec["max"])
+                else:
+                    raise ValueError(f"Unknown param type '{ptype}' for '{name}' in topic '{topic}'")
+            for name, expr in (entry.get("compute") or {}).items():
+                ctx[name] = _safe_eval(expr, ctx)
+            prompt = entry["prompt"].format(**ctx)
+            solution = entry["solution"].format(**ctx)
+            answer_value = str(entry.get("answer_value", "{answer}")).format(**ctx)
+
+        return Question(
+            section=meta["focus_area"], topic=topic, outcome_code=code,
+            focus_area=meta["focus_area"], capability=meta.get("capability", ""), stage=meta.get("stage", 2),
+            q_type=q_type, prompt_tex=prompt, solution_tex=solution, answer_value=answer_value, layout_hint=layout_hint
+        )
+
 
 TOPIC_GENERATORS = {
     "representing_numbers": "generate_representing_numbers",
@@ -1762,6 +1877,13 @@ TOPIC_GENERATORS = {
     "multiple_choice": "generate_multiple_choice",
 }
 
+# Topics from question_bank_data.yaml become available the same way as any
+# built-in topic above - but a built-in Python generator always wins if a
+# bank topic happens to reuse an existing topic name, so this never silently
+# shadows the hand-written generators.
+for _bank_topic_name in CUSTOM_TOPIC_BANK:
+    TOPIC_GENERATORS.setdefault(_bank_topic_name, "generate_from_bank")
+
 
 def build_question_for_topic(
     qb: QuestionBank,
@@ -1779,6 +1901,8 @@ def build_question_for_topic(
         "fixed_questions": topic_config.get("fixed_questions"),
         "index": index
     }
+    if method_name == "generate_from_bank":
+        kwargs["topic"] = topic
 
     if "digits" in topic_config:
         kwargs["digits"] = topic_config["digits"]
