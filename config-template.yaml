@@ -77,6 +77,9 @@ arithmetic_line_height: 1.0            # Multiplier on \baselineskip for the ver
 # 2. Section & Topic Configurations
 # Each section below corresponds to one "Practice Area" in the CSV question
 # bank, so the web app can render/save these sections directly.
+#
+# `layout` defaults to "list" if omitted - only specify it when you want
+# "grid_3col" (the side-by-side 3-column layout column arithmetic uses).
 # ------------------------------------------------------------------------------
 sections:
 
@@ -87,7 +90,6 @@ sections:
   # ----------------------------------------------------------------------------
   - title: "1. Number & Place Value"
     description: "Read, write, round and decompose whole numbers using place value."
-    layout: "list"
     working_space: "2.5cm"
     topics:
 
@@ -156,7 +158,6 @@ sections:
   # ----------------------------------------------------------------------------
   - title: "3. Fractions & Decimals"
     description: "Add, subtract or multiply fractions and simplify your answer."
-    layout: "list"
     working_space: "2.5cm"
     topics:
 
@@ -173,7 +174,6 @@ sections:
   # ----------------------------------------------------------------------------
   - title: "4. Patterns & Algebra"
     description: "Determine missing pattern terms and solve single- and multi-step equations."
-    layout: "list"
     working_space: "2.5cm"
     topics:
 
@@ -197,7 +197,6 @@ sections:
   # ----------------------------------------------------------------------------
   - title: "5. Measurement & Time"
     description: "Read analog clock faces, and solve real-world duration and speed/distance problems."
-    layout: "list"
     working_space: "3cm"
     topics:
 
@@ -226,7 +225,6 @@ sections:
   # ----------------------------------------------------------------------------
   - title: "6. Geometry & Shape"
     description: "Classify angles, name 2D/3D shapes, and calculate missing angles or capacities."
-    layout: "list"
     working_space: "3cm"
     topics:
 
@@ -281,7 +279,6 @@ sections:
   # ----------------------------------------------------------------------------
   - title: "7. Statistics & Probability"
     description: "Interpret simple data displays and reason about the likelihood of everyday events."
-    layout: "list"
     working_space: "2.5cm"
     topics:
 
@@ -307,7 +304,6 @@ sections:
   # ----------------------------------------------------------------------------
   - title: "8. General Mathematics Quiz"
     description: "Select the correct answer from the given options."
-    layout: "list"
     working_space: "1.5cm"
     topics:
 

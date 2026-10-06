@@ -147,13 +147,15 @@ def _save_config_from_form(form) -> Dict[str, Any]:
         if not topics_cfg:
             continue
 
-        sections.append({
+        section: Dict[str, Any] = {
             "title": area,
             "description": "",
-            "layout": layout_hint,
             "working_space": "3.5cm" if layout_hint == "grid_3col" else "2.5cm",
             "topics": topics_cfg,
-        })
+        }
+        if layout_hint != "list":  # "list" is generate_workbook_pipeline's own default - no need to spell it out
+            section["layout"] = layout_hint
+        sections.append(section)
 
     config = {
         "title": f"Stage {stage} Mathematics Practice Workbook",

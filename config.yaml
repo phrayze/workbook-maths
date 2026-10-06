@@ -12,7 +12,6 @@ arithmetic_line_height: 2.0            # Multiplier on \baselineskip for the ver
 sections:
 - title: Number & Place Value
   description: ''
-  layout: list
   working_space: 2.5cm
   topics:
     representing_numbers:
@@ -41,18 +40,8 @@ sections:
       times_table:
       - 3
       - 4
-    long_division:
-      count: 1
-      difficulty: easy
-      digits_dividend: 2
-      digits_divisor: 1
-      times_table:
-      - 2
-      - 3
-      allow_remainder: false
 - title: Fractions & Decimals
   description: ''
-  layout: list
   working_space: 2.5cm
   topics:
     fractions:
@@ -61,7 +50,6 @@ sections:
       op_type: addition
 - title: Patterns & Algebra
   description: ''
-  layout: list
   working_space: 2.5cm
   topics:
     sequences:
@@ -73,18 +61,19 @@ sections:
       pattern_type: arithmetic
 - title: Measurement & Time
   description: ''
-  layout: list
   working_space: 2.5cm
   topics:
     reading_time:
       count: 2
-      difficulty: easy
+      difficulty: medium
     date_duration:
       count: 2
-      difficulty: easy
+      difficulty: hard
+    speed_distance:
+      count: 1
+      difficulty: "medium"          # Options: easy/medium (MA2-GM-02), hard/genius (MA3-GM-02, multi-leg journeys)
 - title: Geometry & Shape
   description: ''
-  layout: list
   working_space: 2.5cm
   topics:
     2d_shapes:
@@ -93,9 +82,11 @@ sections:
     3d_objects:
       count: 2
       difficulty: easy
+    compass_directions:
+      count: 2
+      difficulty: easy
 - title: Statistics & Probability
   description: ''
-  layout: list
   working_space: 2.5cm
   topics:
     data:
