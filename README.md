@@ -55,7 +55,7 @@ This is the same pipeline the web app calls — the CLI is just a direct way to 
 python3 build_methods_guide.py --output output/methods_guide.pdf
 ```
 
-A separate, static PDF that explains **how** to do each question type — steps, worked examples (with the same `xlop`/TikZ visuals as the workbook, fully worked rather than hidden), common mistakes, and a times/division facts grid for 1–12. It isn't config-driven or randomised like the practice workbook: it's a fixed companion reference, one section per Practice Area, that pulls its NESA outcome-code badges live from `maths-curriculum-ks1_2_3.csv` so they can't drift out of sync with the question bank.
+A separate, static PDF that explains **how** to do each question type — steps, worked examples (with the same `xlop`/TikZ visuals as the workbook, fully worked rather than hidden), common mistakes, and times/division facts for 1–12 (both as a single row×column grid, and as twelve individual reference tables spelling out every fact as a full equation, $k \times N = \text{product}$). It isn't config-driven or randomised like the practice workbook: it's a fixed companion reference, one section per Practice Area, that pulls its NESA outcome-code badges live from `maths-curriculum-ks1_2_3.csv` so they can't drift out of sync with the question bank.
 
 ---
 
@@ -128,8 +128,12 @@ title: "Stage 2 Mathematics Practice Workbook"
 stage: 2                # 1, 2, or 3 — used for header text, not enforced on topics
 seed: 42                 # integer for a reproducible sheet, or null for random each run
 include_solutions: true  # append the Worked Solutions & Answer Key page
-font_size: "14pt"
+font_size: "14pt"        # 8/9/10/11/12/14/17/20pt only — the only sizes extarticle/extsizes supports, anything
+                         # else is silently ignored by LaTeX. Scales the whole document correctly and
+                         # proportionally; the header/footer are pinned to a fixed size so they never collide.
 working_space: "3cm"     # default vertical space under each question
+arithmetic_column_width: "2ex"  # xlop's horizontal gap between digit columns in column arithmetic (default 2ex)
+arithmetic_line_height: 1.0     # multiplier on \baselineskip for xlop's vertical gap between rows (default 1.0)
 ```
 
 Then a `sections` list — each section is one Practice Area, with a `topics` map of `topic: {count, difficulty, ...}`:
@@ -156,6 +160,8 @@ A few topics take extra parameters beyond `count`/`difficulty` — these are doc
 - **Known limitation**: `digits` (addition/subtraction), `digits_top`/`digits_bottom` (multiplication) and `digits_dividend`/`digits_divisor` (long division) are accepted in config but not yet wired up — operand size is currently determined entirely by `difficulty`, not by these fields. They're left in place for forward compatibility; see the inline comments in `config-template.yaml`.
 
 Whitespace can be set globally (`working_space` at the top level), per-section, or left at the default — the most specific one wins.
+
+Each section renders as a navy title bar over a light-grey instructions box (`sec.description`); this heading is a fixed size regardless of `font_size`, so it never grows large enough to wrap awkwardly. Every question (including its diagram and working space) is wrapped so it can't be split across a page by LaTeX's normal pagebreaking — if a question doesn't fully fit in the remaining space on a page, the whole thing moves to the next page instead of breaking mid-question.
 
 **No duplicate questions within a workbook**: `build_question_for_topic` tracks every prompt already produced per topic and retries (bounded) if a generator is about to repeat one verbatim — this matters for topics like `chance`, `data` and `multiple_choice` that draw from a finite scenario bank rather than synthesising fresh numbers each time. If you request more questions for one topic/difficulty than that bank has distinct entries (the picker allows up to 20 per topic), duplicates become unavoidable and the generator falls back to repeating rather than looping forever — in practice this only bites at unusually high counts, well above the defaults.
 

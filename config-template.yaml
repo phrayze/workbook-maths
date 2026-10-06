@@ -58,8 +58,20 @@ stage: 1                              # Curriculum Stage: 1 (Y1-2), 2 (Y3-4), 3 
 header_left: "Mathematics Practice"
 seed: null                              # Integer for reproducible random questions, or null for random
 include_solutions: true               # Set true to append Worked Solutions & Answer Key page
-font_size: "14pt"                     # Document base font size (Supported: 8pt, 9pt, 10pt, 11pt, 12pt, 14pt, 17pt, 20pt)
+font_size: "14pt"                     # Document base font size (Supported: 8pt, 9pt, 10pt, 11pt, 12pt, 14pt, 17pt, 20pt - these
+                                       # are the only sizes extarticle/extsizes provides; anything else is silently ignored by
+                                       # LaTeX). Scales the whole document proportionally and correctly at every supported size -
+                                       # the header/footer are deliberately pinned to a fixed small size so they never collide
+                                       # regardless of this setting.
 working_space: "3cm"                  # Global default vertical workspace under questions (e.g. 2.5cm, 3cm, 4cm)
+
+# Column-arithmetic spacing (vertical_addition/subtraction/multiplication,
+# long_division) - independent of font_size above, since making the base text
+# bigger to fit more on a line doesn't necessarily mean the digit spacing in a
+# column sum needs to grow too. These map directly to xlop's own `columnwidth`
+# and `lineheight` options.
+arithmetic_column_width: "2ex"         # Horizontal gap between digit columns (xlop default: 2ex). Try 2.5ex-3.5ex for more room.
+arithmetic_line_height: 1.0            # Multiplier on \baselineskip for the vertical gap between rows (xlop default: 1.0). Try 1.2-1.5 for more room.
 
 # ------------------------------------------------------------------------------
 # 2. Section & Topic Configurations

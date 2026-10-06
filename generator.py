@@ -1930,12 +1930,22 @@ def generate_workbook_pipeline(config: Dict[str, Any]) -> Dict[str, Any]:
     elif not str(font_size).endswith("pt"):
         font_size = f"{font_size}pt"
 
+    # xlop's own spacing knobs for column arithmetic (addition/subtraction/
+    # multiplication/division) - columnwidth is the horizontal gap between
+    # digit columns, lineheight the vertical gap between rows. Independent of
+    # font_size, since bumping the base font to fit more text doesn't
+    # necessarily mean the working space between digits needs to grow too.
+    arithmetic_column_width = config.get("arithmetic_column_width", "2ex")
+    arithmetic_line_height = config.get("arithmetic_line_height", 1.0)
+
     return {
         "title": title,
         "subtitle": subtitle,
         "stage": stage,
         "header_left": header_left,
         "font_size": font_size,
+        "arithmetic_column_width": arithmetic_column_width,
+        "arithmetic_line_height": arithmetic_line_height,
         "include_solutions": include_solutions,
         "sections": processed_sections,
         "all_questions": all_questions

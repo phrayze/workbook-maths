@@ -6,12 +6,31 @@
 \usepackage{tikz}          % Clock faces and angle diagrams
 \usepackage{fancyhdr}
 \usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
 
+% Column-arithmetic spacing (independent of font_size - see config.yaml's
+% arithmetic_column_width/arithmetic_line_height): columnwidth is the
+% horizontal gap between digit columns, lineheight the vertical gap between
+% rows, in \opadd/\opsub/\opmul/\opidiv.
+\opset{columnwidth=\VAR{arithmetic_column_width | default('2ex')}, lineheight=\VAR{arithmetic_line_height | default(1.0)}\baselineskip}
+
+% Section heading: a navy title bar over a light grey instruction box,
+% independent of the body font_size so it never grows large enough to wrap
+% or collide with anything else on the page.
+\definecolor{sectionnavy}{RGB}{21,54,95}
+\newtcolorbox{sectionbox}[1]{colback=gray!6!white, colframe=sectionnavy, coltitle=white,
+  fonttitle=\bfseries\large, title={#1}, fontupper=\normalsize,
+  arc=2mm, boxrule=0.8pt, left=8pt, right=8pt, top=5pt, bottom=5pt, breakable}
+
+% Header/footer text is pinned to a fixed size regardless of font_size, so a
+% larger body font_size can never make the left/right header text wide
+% enough to collide (this was happening at every font_size, worse at larger
+% ones, before this fix).
 \setlength{\headheight}{22pt}
 \pagestyle{fancy}
-\fancyhead[L]{\VAR{header_left}}
-\fancyhead[R]{Name: \underline{\hspace{3.5cm}} Date: \underline{\hspace{2.5cm}}}
-\fancyfoot[C]{Page \thepage}
+\fancyhead[L]{\fontsize{10pt}{12pt}\selectfont \VAR{header_left}}
+\fancyhead[R]{\fontsize{10pt}{12pt}\selectfont Name: \underline{\hspace{3.5cm}} Date: \underline{\hspace{2.5cm}}}
+\fancyfoot[C]{\fontsize{10pt}{12pt}\selectfont Page \thepage}
 
 \begin{document}
 
@@ -24,10 +43,10 @@
 \vspace{1em}
 
 \BLOCK{ for sec in sections }
-\section*{\VAR{sec.title}}
-\BLOCK{ if sec.description }
-\noindent \textit{\VAR{sec.description}}\\[1em]
-\BLOCK{ endif }
+\begin{sectionbox}{\VAR{sec.title}}
+\VAR{sec.description}
+\end{sectionbox}
+\vspace{0.6em}
 
 \BLOCK{ if sec.layout == 'grid_3col' }
 \noindent%
@@ -50,12 +69,18 @@
 \vspace{2em}
 
 \BLOCK{ else }
-\begin{enumerate}[label=, leftmargin=2em]
 \BLOCK{ for q in sec.questions }
-    \item[\textbf{Q\VAR{q.id}:}] \VAR{q.prompt_tex}
-    \vspace{\VAR{sec.working_space}}
+\noindent\begin{minipage}{\linewidth}
+\hangindent=2em\hangafter=1
+\textbf{Q\VAR{q.id}:}\hspace{0.5em}\VAR{q.prompt_tex}
+\vspace{\VAR{sec.working_space}}
+\end{minipage}
+\BLOCK{ if not loop.last }
+
+\vspace{0.8em}
+
+\BLOCK{ endif }
 \BLOCK{ endfor }
-\end{enumerate}
 \BLOCK{ endif }
 
 \BLOCK{ endfor }
@@ -63,7 +88,7 @@
 \BLOCK{ if include_solutions }
 \newpage
 % ANSWER KEY PAGE
-\fancyhead[L]{\VAR{header_left} -- Worked Solutions}
+\fancyhead[L]{\fontsize{10pt}{12pt}\selectfont \VAR{header_left} -- Worked Solutions}
 
 \begin{center}
     {\LARGE \bfseries Answer Key \& Solutions Guide}

@@ -69,11 +69,29 @@ Find $72 \div 8$. Look for 72 inside the grid: it's in row 8, column 9. So $72 \
 
 \subsection*{Times Tables, Listed}
 
-\begin{multicols}{2}
-\BLOCK{ for i in range(1, n+1) }
-\textbf{\VAR{i} times table:} \VAR{i}, \BLOCK{ for j in range(2, n+1) }\VAR{grid[i-1][j-1]}\BLOCK{ if not loop.last }, \BLOCK{ endif }\BLOCK{ endfor }\\[0.4em]
+Each table below spells out every fact as a full equation, $k \times N = \text{product}$, rather than just the bare answer --- useful for reading aloud or reciting from memory.
+
+\footnotesize
+\noindent%
+\BLOCK{ for i in range(1, n+1) }%
+\begin{minipage}[t]{0.15\textwidth}
+\centering
+\textbf{\VAR{i} times table}\\[0.3em]
+\begin{tabular}{@{}r@{\,}c@{\,}l@{}}
+\BLOCK{ for k in range(1, n+1) }
+\VAR{k} & $\times \VAR{i} =$ & \VAR{grid[i-1][k-1]} \\
 \BLOCK{ endfor }
-\end{multicols}
+\end{tabular}
+\end{minipage}%
+\BLOCK{ if loop.index % 6 == 0 }
+
+\vspace{1em}
+\noindent%
+\BLOCK{ else }%
+\hfill%
+\BLOCK{ endif }%
+\BLOCK{ endfor }
+\normalsize
 
 \newpage
 
