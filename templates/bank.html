@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Question Bank — NSW Maths Workbook</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>Question Bank</h1>
+    <p class="subtitle">Add brand-new topics to <code>question_bank_data.yaml</code> — no Python required.</p>
+    <nav><a href="{{ url_for('index') }}">Back to picker</a> | <a href="{{ url_for('history') }}">View past results</a></nav>
+  </header>
+
+  {% if error %}
+  <div class="banner banner-error">{{ error }}</div>
+  {% endif %}
+
+  {% if added %}
+  <div class="banner banner-success">Added topic <strong>{{ added }}</strong> — it's now available in the picker under its Practice Area, with one exact question to start. Come back here to add more topics, or hand-edit <code>question_bank_data.yaml</code> to add more questions to this one.</div>
+  {% endif %}
+
+  <section class="global-options" style="display:block;">
+    <h2 style="margin-top:0;">Existing bank topics</h2>
+    {% if not topics %}
+    <p class="note">No custom topics yet — add your first one below.</p>
+    {% else %}
+    <table class="bank-table">
+      <thead>
+        <tr><th>Topic</th><th>Practice Area</th><th>Easy</th><th>Medium</th><th>Hard</th><th>Genius</th></tr>
+      </thead>
+      <tbody>
+        {% for row in topics %}
+        <tr>
+          <td><strong>{{ row.topic }}</strong></td>
+          <td>{{ row.practice_area }}</td>
+          {% for diff in ['easy', 'medium', 'hard', 'genius'] %}
+          <td>
+            {% if diff in row.tiers %}
+              {{ row.tiers[diff].exact }} exact, {{ row.tiers[diff].generate }} generate
+            {% else %}
+              <span class="field-help">—</span>
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </section>
+
+  <fieldset class="practice-area area-color-7">
+    <legend>Add a new topic</legend>
+    <form method="post" action="{{ url_for('bank_add') }}">
+      <div class="advanced-fields" style="margin:0 0 1rem;">
+        <label class="advanced-field">
+          Topic name
+          <input type="text" name="topic_name" placeholder="e.g. Telling Time Word Problems" required>
+          <span class="field-help">Becomes the config.yaml key, e.g. "telling_time_word_problems".</span>
+        </label>
+        <label class="advanced-field">
+          Practice area
+          <select name="practice_area" required>
+            {% for area in areas %}
+            <option value="{{ area }}">{{ area }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="advanced-field">
+          Difficulty
+          <select name="difficulty">
+            {% for level in ['easy', 'medium', 'hard', 'genius'] %}
+            <option value="{{ level }}" {% if level == 'medium' %}selected{% endif %}>{{ level|title }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="advanced-field">
+          NESA outcome code <span class="field-help">(optional)</span>
+          <input type="text" name="outcome_code" placeholder="e.g. MA2-NSM-02" size="14">
+        </label>
+        <label class="advanced-field">
+          Outcome stage <span class="field-help">(optional, only used with a code above)</span>
+          <select name="outcome_stage">
+            <option value="1">Stage 1</option>
+            <option value="2" selected>Stage 2</option>
+            <option value="3">Stage 3</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="topic-name" style="display:block; margin-bottom:0.5rem;">Prompt (question text — plain LaTeX, e.g. $3 + 4 = ?$)</label>
+      <textarea name="prompt" rows="2" style="width:100%; font-family:inherit; font-size:0.95rem; padding:0.5rem; border-radius:6px; border:1px solid #ccc;" required></textarea>
+
+      <label class="topic-name" style="display:block; margin:0.75rem 0 0.5rem;">Solution (worked answer, shown in the Answer Key)</label>
+      <textarea name="solution" rows="2" style="width:100%; font-family:inherit; font-size:0.95rem; padding:0.5rem; border-radius:6px; border:1px solid #ccc;" required></textarea>
+
+      <label class="topic-name" style="display:block; margin:0.75rem 0 0.5rem;">Answer value (plain text, e.g. "7" or "3/4" — used for auto-marking)</label>
+      <input type="text" name="answer_value" style="width:100%; font-size:0.95rem; padding:0.5rem; border-radius:6px; border:1px solid #ccc;" required>
+
+      <div class="actions">
+        <button type="submit">Add Topic</button>
+        <span class="note">Creates a new topic with this one question — add more by editing <code>question_bank_data.yaml</code> directly afterwards.</span>
+      </div>
+    </form>
+  </fieldset>
+</body>
+</html>

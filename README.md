@@ -69,7 +69,7 @@ source venv/bin/activate
 python3 app.py
 ```
 
-Open `http://localhost:5000`. Pick a Key Stage and Practice Areas, adjust counts/difficulty, then either **Save & Generate PDF** or **Save & Start Online Test**. Both first write your selections to `config.yaml`, so the CLI and the web app always agree on "the current config."
+Open `http://localhost:5000`. Pick a Key Stage and Practice Areas, adjust counts/difficulty, then either **Save & Generate PDF** or **Save & Start Online Test**. Both first write your selections to `config.yaml`, so the CLI and the web app always agree on "the current config." The **Question Bank** link in the header (`/bank`) opens a form for adding brand-new topics — see [Adding New Question Types](#adding-new-question-types-question_bank_datayaml).
 
 ### Deployed to an endpoint
 
@@ -223,6 +223,8 @@ Everything today is deterministic, rule-based Python/YAML — random numbers (or
 ### Adding New Question Types (`question_bank_data.yaml`)
 
 This file defines entire new topics declaratively — add it to the YAML and the topic immediately works everywhere a built-in topic does: `config.yaml`/`config-template.yaml`, the web picker (grouped under whatever `practice_area` you give it, with outcome-code chips pulled from the CSV), PDF generation, the answer key, and — if the answer shape suits it — the online MCQ quiz. No code change, no restart-and-register step. A topic name here never overrides a built-in Python topic of the same name; the hand-written generator always wins on a name clash.
+
+**Via the web app**: open `http://localhost:5000/bank` (linked from the picker header) for a form that creates a new topic with one `exact` question — pick a Practice Area/difficulty from dropdowns, fill in the prompt/solution/answer, submit, and it's immediately available in the picker (no restart). It appends a new block to `question_bank_data.yaml` without touching anything already in the file, so existing topics/comments are untouched — but it only *creates new* topics; add more questions to one afterwards (or write a `generate` template) by editing that topic's block in the YAML directly, same as below.
 
 Each topic has one or more difficulty tiers, and each tier is a bank of two kinds of entries:
 

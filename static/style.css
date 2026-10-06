@@ -30,6 +30,11 @@ header nav a:hover { text-decoration: underline; }
 .banner-error { background: #fdecea; border: 1px solid #f5c6cb; color: #7a1f1f; }
 .banner-suggestion { background: #fff8e1; border: 1px solid #ffe08a; color: #6b5300; }
 .banner-suggestion ul { margin: 0.5rem 0; }
+.banner-success { background: #eafaea; border: 1px solid #b7e4b7; color: #1a5c1a; }
+
+.bank-table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; font-size: 0.9rem; }
+.bank-table th, .bank-table td { text-align: left; padding: 0.5rem 0.7rem; border-bottom: 1px solid #eee; }
+.bank-table th { color: #555; font-weight: 700; }
 
 .global-options {
   display: flex;

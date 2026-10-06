@@ -499,12 +499,14 @@ def _safe_eval(expr: str, context: Dict[str, Any]) -> Any:
     return eval(expr, {"__builtins__": {}}, namespace)  # noqa: S307 - restricted namespace, trusted file (see module docstring above)
 
 
+QUESTION_BANK_DATA_PATH = os.path.join(os.path.dirname(__file__), "question_bank_data.yaml")
+
+
 def _load_question_bank_data() -> Dict[str, Dict[str, Any]]:
-    path = os.path.join(os.path.dirname(__file__), "question_bank_data.yaml")
-    if not os.path.exists(path):
+    if not os.path.exists(QUESTION_BANK_DATA_PATH):
         return {}
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(QUESTION_BANK_DATA_PATH, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
     except yaml.YAMLError as e:
         print(f"Warning: Could not parse question_bank_data.yaml: {e}")
@@ -513,6 +515,27 @@ def _load_question_bank_data() -> Dict[str, Dict[str, Any]]:
 
 
 CUSTOM_TOPIC_BANK: Dict[str, Dict[str, Any]] = _load_question_bank_data()
+
+
+def register_custom_topics() -> None:
+    """Registers every CUSTOM_TOPIC_BANK key into TOPIC_GENERATORS (a
+    built-in Python generator always wins on a name clash - see
+    generate_from_bank's docstring). Called once at import time below, and
+    again by reload_custom_topic_bank() after the bank file changes."""
+    for _topic_name in CUSTOM_TOPIC_BANK:
+        TOPIC_GENERATORS.setdefault(_topic_name, "generate_from_bank")
+
+
+def reload_custom_topic_bank() -> None:
+    """Re-reads question_bank_data.yaml into the existing CUSTOM_TOPIC_BANK
+    dict in place (so any module that imported CUSTOM_TOPIC_BANK directly,
+    e.g. question_bank.py, sees the update too) and registers any newly
+    added topic. Lets the web app's bank editor (app.py's /bank routes) add
+    a topic without restarting the Flask process."""
+    fresh = _load_question_bank_data()
+    CUSTOM_TOPIC_BANK.clear()
+    CUSTOM_TOPIC_BANK.update(fresh)
+    register_custom_topics()
 
 
 class QuestionBank:
@@ -1881,8 +1904,7 @@ TOPIC_GENERATORS = {
 # built-in topic above - but a built-in Python generator always wins if a
 # bank topic happens to reuse an existing topic name, so this never silently
 # shadows the hand-written generators.
-for _bank_topic_name in CUSTOM_TOPIC_BANK:
-    TOPIC_GENERATORS.setdefault(_bank_topic_name, "generate_from_bank")
+register_custom_topics()
 
 
 def build_question_for_topic(

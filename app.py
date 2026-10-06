@@ -1,4 +1,5 @@
 import os
+import re
 import traceback
 from typing import Any, Dict, List
 
@@ -6,6 +7,7 @@ import yaml
 from flask import Flask, jsonify, redirect, render_template, request, send_file, url_for
 
 from build_workbook import build_pdf
+import generator
 from generator import QuestionBank, build_question_for_topic
 from mcq_utils import build_mcq_set
 import question_bank
@@ -255,6 +257,116 @@ def history():
     student = request.args.get("student", "").strip() or None
     entries = list(reversed(results_store.load_history(student)))
     return render_template("history.html", entries=entries, student=student or "")
+
+
+_BANK_FILE_FALLBACK_HEADER = (
+    "# ==============================================================================\n"
+    "# User-extensible question bank\n"
+    "# ==============================================================================\n"
+    "# See README.md's \"Extending the Question Bank\" section for the full format\n"
+    "# (exact vs generate entries, safe eval, str.format() escaping).\n"
+    "# ==============================================================================\n\n"
+    "topics:\n"
+)
+
+
+def _bank_topic_summary() -> List[Dict[str, Any]]:
+    """One row per CUSTOM_TOPIC_BANK topic, for the /bank listing: its
+    practice area and, per difficulty tier, how many exact/generate entries
+    it has."""
+    rows = []
+    for topic, data in sorted(generator.CUSTOM_TOPIC_BANK.items()):
+        tiers = {}
+        for diff, tier in (data.get("bank") or {}).items():
+            tiers[diff] = {
+                "exact": len(tier.get("exact") or []),
+                "generate": len(tier.get("generate") or []),
+            }
+        rows.append({
+            "topic": topic,
+            "practice_area": data.get("practice_area", "General Quiz"),
+            "tiers": tiers,
+        })
+    return rows
+
+
+@app.route("/bank", methods=["GET"])
+def bank():
+    return render_template(
+        "bank.html",
+        topics=_bank_topic_summary(),
+        areas=question_bank.PRACTICE_AREA_ORDER,
+        added=request.args.get("added"),
+        error=request.args.get("error"),
+    )
+
+
+@app.route("/bank/add", methods=["POST"])
+def bank_add():
+    form = request.form
+    raw_name = (form.get("topic_name") or "").strip()
+    practice_area = (form.get("practice_area") or "").strip()
+    difficulty = (form.get("difficulty") or "medium").strip().lower()
+    outcome_code = (form.get("outcome_code") or "").strip()
+    outcome_stage_raw = (form.get("outcome_stage") or "").strip()
+    prompt = (form.get("prompt") or "").strip()
+    solution = (form.get("solution") or "").strip()
+    answer_value = (form.get("answer_value") or "").strip()
+
+    slug = re.sub(r"[^a-z0-9_]+", "_", raw_name.lower()).strip("_")
+
+    error = None
+    if not raw_name or not slug:
+        error = "Topic name is required."
+    elif difficulty not in ("easy", "medium", "hard", "genius"):
+        error = "Difficulty must be easy, medium, hard, or genius."
+    elif not practice_area:
+        error = "Practice area is required."
+    elif not prompt or not solution or not answer_value:
+        error = "Prompt, solution, and answer are all required."
+    elif slug in generator.TOPIC_GENERATORS and slug not in generator.CUSTOM_TOPIC_BANK:
+        error = f"'{slug}' is already a built-in topic name - pick a different name."
+    elif slug in generator.CUSTOM_TOPIC_BANK:
+        error = (
+            f"'{slug}' already exists in question_bank_data.yaml - this form only creates brand-new "
+            f"topics. Add more questions to an existing topic by editing that file directly."
+        )
+
+    if error:
+        return redirect(url_for("bank", error=error))
+
+    new_topic: Dict[str, Any] = {
+        "practice_area": practice_area,
+        "default_count": 3,
+        "bank": {
+            difficulty: {
+                "exact": [
+                    {"prompt": prompt, "solution": solution, "answer_value": answer_value}
+                ]
+            }
+        },
+    }
+    if outcome_code:
+        try:
+            outcome_stage = int(outcome_stage_raw)
+        except ValueError:
+            outcome_stage = 2
+        new_topic["outcomes"] = {difficulty: {"code": outcome_code, "stage": outcome_stage}}
+
+    block = yaml.safe_dump({slug: new_topic}, sort_keys=False, allow_unicode=True, default_flow_style=False)
+    indented = "\n".join(("  " + line if line.strip() else line) for line in block.splitlines())
+
+    if not os.path.exists(generator.QUESTION_BANK_DATA_PATH):
+        with open(generator.QUESTION_BANK_DATA_PATH, "w", encoding="utf-8") as f:
+            f.write(_BANK_FILE_FALLBACK_HEADER)
+
+    with open(generator.QUESTION_BANK_DATA_PATH, "a", encoding="utf-8") as f:
+        f.write("\n" + indented + "\n")
+
+    generator.reload_custom_topic_bank()
+    question_bank.register_custom_topics()
+
+    return redirect(url_for("bank", added=slug))
 
 
 if __name__ == "__main__":

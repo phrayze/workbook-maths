@@ -39,14 +39,21 @@ PRACTICE_AREA_ORDER: List[str] = [
 # question_bank_data.yaml topics (see generator.py) join the same catalogue
 # the web picker reads from - a topic already defined above always wins, so
 # a bank file can never silently override a built-in topic's UI metadata.
-for _topic_name, _bank_topic in CUSTOM_TOPIC_BANK.items():
-    TOPIC_CATALOGUE.setdefault(_topic_name, {
-        "practice_area": _bank_topic.get("practice_area", "General Quiz"),
-        "layout_hint": _bank_topic.get("layout_hint", "list"),
-        "default_count": _bank_topic.get("default_count", 3),
-    })
-    if TOPIC_CATALOGUE[_topic_name]["practice_area"] not in PRACTICE_AREA_ORDER:
-        PRACTICE_AREA_ORDER.append(TOPIC_CATALOGUE[_topic_name]["practice_area"])
+def register_custom_topics() -> None:
+    """Merges CUSTOM_TOPIC_BANK into TOPIC_CATALOGUE/PRACTICE_AREA_ORDER.
+    Called once at import time below, and again after app.py's /bank editor
+    adds a new topic and calls generator.reload_custom_topic_bank()."""
+    for _topic_name, _bank_topic in CUSTOM_TOPIC_BANK.items():
+        TOPIC_CATALOGUE.setdefault(_topic_name, {
+            "practice_area": _bank_topic.get("practice_area", "General Quiz"),
+            "layout_hint": _bank_topic.get("layout_hint", "list"),
+            "default_count": _bank_topic.get("default_count", 3),
+        })
+        if TOPIC_CATALOGUE[_topic_name]["practice_area"] not in PRACTICE_AREA_ORDER:
+            PRACTICE_AREA_ORDER.append(TOPIC_CATALOGUE[_topic_name]["practice_area"])
+
+
+register_custom_topics()
 
 STAGE_DEFAULT_DIFFICULTY: Dict[int, str] = {1: "easy", 2: "medium", 3: "hard"}
 

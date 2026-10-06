@@ -8,7 +8,7 @@
 <body>
   <header>
     <h1>Past Online Test Results</h1>
-    <nav><a href="{{ url_for('index') }}">Back to picker</a></nav>
+    <nav><a href="{{ url_for('index') }}">Back to picker</a> | <a href="{{ url_for('bank') }}">Question Bank</a></nav>
   </header>
 
   <form method="get" action="{{ url_for('history') }}" class="filter-form">
