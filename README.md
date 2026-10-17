@@ -69,7 +69,7 @@ source venv/bin/activate
 python3 app.py
 ```
 
-Open `http://localhost:5000`. Pick a Key Stage and Practice Areas, adjust counts/difficulty, then either **Save & Generate PDF** or **Save & Start Online Test**. Both first write your selections to `config.yaml`, so the CLI and the web app always agree on "the current config." The **Question Bank** link in the header (`/bank`) opens a form for adding brand-new topics — see [Adding New Question Types](#adding-new-question-types-question_bank_datayaml).
+Open `http://localhost:5000`. Pick a Key Stage and Practice Areas, adjust counts/difficulty, then either **Save & Generate PDF** or **Save & Start Online Test**. Both first write your selections to `config.yaml`, so the CLI and the web app always agree on "the current config." The **Question Bank** link in the header (`/bank`) opens a form for adding a topic or another question on one you already have — see [Adding New Question Types](#adding-new-question-types-question_bank_datayaml).
 
 ### Deployed to an endpoint
 
@@ -145,7 +145,16 @@ arithmetic_line_height: 1.0     # multiplier on \baselineskip for xlop's vertica
 
 ### Step 3 — Decide which Practice Areas and topics you want
 
-The template ships with all 8 Practice Areas (`sections`), each a block like this:
+The short form is one line per topic. Practice area, layout, and spacing are filled in from the catalogue, so you don't repeat a section wrapper for every area:
+
+```yaml
+topics:
+  representing_numbers: {count: 3, difficulty: medium}
+  vertical_addition: {count: 6, difficulty: medium, digits: 3, allow_carrying: true}
+  compass_directions: {count: 2, difficulty: easy}
+```
+
+`config-template.yaml` still spells the same thing out as 8 `sections` blocks, which is the form to use when you want a custom title, description, or per-section working space. A section looks like this:
 
 ```yaml
 sections:
@@ -162,7 +171,7 @@ sections:
         difficulty: "medium"
 ```
 
-Delete whole `sections` entries you don't want, or delete individual topics within a section's `topics` map. Leave the ones you want and move on to Step 4. (If you'd rather do this visually than hand-edit YAML, run the web app instead — `python3 app.py` — and use the checkboxes in the picker; it writes exactly this structure to `config.yaml` for you, see [Running the Web App](#running-the-web-app).)
+Delete whole `sections` entries you don't want, or delete individual topics within a section's `topics` map. Leave the ones you want and move on to Step 4. (If you'd rather do this visually than hand-edit YAML, run the web app instead — `python3 app.py` — and use the checkboxes in the picker. It writes the one-line `topics:` form above to `config.yaml`, see [Running the Web App](#running-the-web-app).)
 
 ### Step 4 — Tune each topic's count, difficulty, and options
 
@@ -222,43 +231,39 @@ Everything today is deterministic, rule-based Python/YAML — random numbers (or
 
 ### Adding New Question Types (`question_bank_data.yaml`)
 
-This file defines entire new topics declaratively — add it to the YAML and the topic immediately works everywhere a built-in topic does: `config.yaml`/`config-template.yaml`, the web picker (grouped under whatever `practice_area` you give it, with outcome-code chips pulled from the CSV), PDF generation, the answer key, and — if the answer shape suits it — the online MCQ quiz. No code change, no restart-and-register step. A topic name here never overrides a built-in Python topic of the same name; the hand-written generator always wins on a name clash.
+This file defines entire new topics declaratively — add it to the YAML and the topic immediately works everywhere a built-in topic does: `config.yaml`, the web picker (grouped under whatever `area` you give it, with outcome-code chips pulled from the CSV), PDF generation, the answer key, and — if the answer shape suits it — the online MCQ quiz. No code change, no restart-and-register step. A topic name here never overrides a built-in Python topic of the same name; the hand-written generator always wins on a name clash.
 
-**Via the web app**: open `http://localhost:5000/bank` (linked from the picker header) for a form that creates a new topic with one `exact` question — pick a Practice Area/difficulty from dropdowns, fill in the prompt/solution/answer, submit, and it's immediately available in the picker (no restart). It appends a new block to `question_bank_data.yaml` without touching anything already in the file, so existing topics/comments are untouched — but it only *creates new* topics; add more questions to one afterwards (or write a `generate` template) by editing that topic's block in the YAML directly, same as below.
+**Via the web app**: open `http://localhost:5000/bank` (linked from the picker header). The form adds one question — an exact one, or a generated template — to a new topic or to a topic already in the file. Pick a Practice Area and difficulty, submit, and it's immediately available in the picker (no restart). Saving rewrites `question_bank_data.yaml` in the compact layout below; the comment header at the top of the file is left in place.
 
-Each topic has one or more difficulty tiers, and each tier is a bank of two kinds of entries:
+Write questions as a flat list. A question with no parameters is used verbatim. A question with parameters is a template:
 
-- **`exact`** — a fully pre-written question (`prompt`, `solution`, `answer_value`). Used verbatim. Good for "I just want these specific 5 questions in the bank."
-- **`generate`** — a parameterised template that produces many different random questions from one definition:
-  - `params`: each is drawn randomly — `{type: choice, values: [...]}` picks one of a list, `{type: int_range, min: a, max: b}` picks a random integer.
-  - `compute` (optional): derives further values from the params via a plain Python expression (evaluated top-to-bottom, so later entries can reference earlier ones) — restricted to no builtins, just your params/computed-so-far values plus a small helper set (`CARDINAL4`, `COMPASS8`, `CARDINAL_VECTOR`, `abs`/`min`/`max`/`round`/`int`/`len`). This file is trusted/author-edited — the same trust level as `config.yaml` — not a sandbox for untrusted input.
-  - `prompt`/`solution`/`answer_value`: Python `str.format()` templates filled in from params + computed values. Since this is LaTeX, a literal brace must be doubled (`{{`/`}}`) exactly like generator.py's own f-strings — e.g. `"\\textbf{{{answer}}}"` renders `\textbf{South}`. Format specs work too, e.g. `"{bearing:03d}"` zero-pads to 3 digits.
+- A parameter value of `2..50` draws a random integer. A list (`[North, East]` or, in the form, `North, East`) draws one entry. A single value stays fixed.
+- `compute` is a Python expression for `{answer}`, or a mapping when you need several derived names (`turn_deg`, then `answer`). Expressions see your parameters, earlier compute names, and a small helper set (`CARDINAL4`, `COMPASS8`, `CARDINAL_VECTOR`, `abs`/`min`/`max`/`round`/`int`/`len`). This file is trusted/author-edited — the same trust level as `config.yaml` — not a sandbox for untrusted input.
+- `prompt` and `solution` are Python `str.format()` templates. `answer` is the auto-marked value; for a template it defaults to `{answer}`. A literal LaTeX brace is doubled (`{{`/`}}`), same as generator.py's f-strings — `"\\textbf{{{answer}}}"` renders `\textbf{South}`. Format specs work too, e.g. `"{bearing:03d}"`.
+- `difficulty` defaults to `medium`. `all`, or a list, puts the same question on more than one tier.
+- `outcomes: MA2-MR-01` with a topic-level `stage` applies that code to every tier. A per-difficulty map still works when the codes differ.
 
-Both kinds of entries within a tier are sampled without repeats (the same round-robin mechanism every topic uses) until the bank's exhausted, same as the built-in topics' category pools.
+Within a tier, questions are sampled without repeats (the same round-robin mechanism every topic uses) until the bank is exhausted.
 
-Minimal example — add this to `question_bank_data.yaml` to create a new "doubling" topic with no Python at all:
+Minimal example — a new "doubling" topic, no Python:
 
 ```yaml
 topics:
   doubling:
-    practice_area: "Patterns & Algebra"   # must be one of the 8 existing areas, or a new one (appended automatically)
-    default_count: 3
-    outcomes:
-      medium: { code: "MA2-MR-01", stage: 2 }   # optional - omit to just fall back to a generic Mathematics label
-    bank:
-      medium:
-        exact:
-          - prompt: "Double 7."
-            solution: "$7 \\times 2 = \\mathbf{14}$"
-            answer_value: "14"
-        generate:
-          - prompt: "Double {n}."
-            params:
-              n: { type: int_range, min: 2, max: 50 }
-            compute:
-              answer: "n * 2"
-            solution: "${n} \\times 2 = \\mathbf{{{answer}}}$"
-            answer_value: "{answer}"
+    area: Patterns & Algebra          # a new area name is appended automatically
+    count: 3
+    stage: 2
+    outcomes: MA2-MR-01               # optional
+    questions:
+      - difficulty: medium
+        prompt: "Double 7."
+        solution: "$7 \\times 2 = \\mathbf{14}$"
+        answer: "14"
+      - difficulty: medium
+        prompt: "Double {n}."
+        n: 2..50
+        compute: n * 2
+        solution: "${n} \\times 2 = \\mathbf{{{answer}}}$"
 ```
 
-The shipped `compass_directions` topic (Geometry & Shape) is a fuller real example — four difficulty tiers mixing `exact` and `generate` entries, including a `compute` step that indexes into `CARDINAL_VECTOR`/`COMPASS8` to turn a direction + a turn amount into a new direction, grid coordinates, or a three-figure bearing. Worth reading alongside this section if you're writing something beyond a one-line formula.
+The nested `bank: / exact: / generate:` layout from earlier versions still loads, so an existing file doesn't have to be rewritten by hand. The shipped `compass_directions` topic is the fuller example: four tiers, including a `compute` step that indexes `CARDINAL_VECTOR` / `COMPASS8` to turn a direction plus a turn into a new direction, grid coordinates, or a three-figure bearing.

@@ -4,94 +4,27 @@ stage: 1
 header_left: NSW Primary Mathematics Practice
 seed: null
 include_solutions: true
-font_size: "14pt"
+font_size: 14pt
 working_space: 2.5cm
-arithmetic_column_width: "3ex"         # Horizontal gap between digit columns (xlop default: 2ex). Try 2.5ex-3.5ex for more room.
-arithmetic_line_height: 2.0            # Multiplier on \baselineskip for the vertical gap between rows (xlop default: 1.0). Try 1.2-1.5 for more room.
+# Horizontal gap between digit columns (xlop default: 2ex). Try 2.5ex-3.5ex for more room.
+arithmetic_column_width: 3ex
+# Multiplier on \baselineskip for the vertical gap between rows (xlop default: 1.0). Try 1.2-1.5 for more room.
+arithmetic_line_height: 2.0
 
-sections:
-- title: Number & Place Value
-  description: ''
-  working_space: 2.5cm
-  topics:
-    representing_numbers:
-      count: 2
-      difficulty: easy
-- title: Column Arithmetic
-  description: ''
-  layout: grid_3col
-  working_space: 3.5cm
-  topics:
-    vertical_addition:
-      count: 3
-      difficulty: medium
-      digits: 3
-      allow_carrying: true
-    vertical_subtraction:
-      count: 3
-      difficulty: medium
-      digits: 3
-      allow_borrowing: true
-    vertical_multiplication:
-      count: 3
-      difficulty: easy
-      digits_top: 3
-      digits_bottom: 1
-      times_table:
-      - 3
-      - 4
-- title: Fractions & Decimals
-  description: ''
-  working_space: 2.5cm
-  topics:
-    fractions:
-      count: 3
-      difficulty: easy
-      op_type: addition
-- title: Patterns & Algebra
-  description: ''
-  working_space: 2.5cm
-  topics:
-    sequences:
-      count: 3
-      difficulty: easy
-      step_range:
-      - 1
-      - 100
-      pattern_type: arithmetic
-- title: Measurement & Time
-  description: ''
-  working_space: 2.5cm
-  topics:
-    reading_time:
-      count: 2
-      difficulty: medium
-    date_duration:
-      count: 2
-      difficulty: hard
-    speed_distance:
-      count: 1
-      difficulty: "medium"          # Options: easy/medium (MA2-GM-02), hard/genius (MA3-GM-02, multi-leg journeys)
-- title: Geometry & Shape
-  description: ''
-  working_space: 2.5cm
-  topics:
-    2d_shapes:
-      count: 2
-      difficulty: easy
-    3d_objects:
-      count: 2
-      difficulty: easy
-    compass_directions:
-      count: 2
-      difficulty: easy
-- title: Statistics & Probability
-  description: ''
-  working_space: 2.5cm
-  topics:
-    data:
-      count: 2
-      difficulty: easy
-    chance:
-      count: 1
-      difficulty: easy
+# One line per topic. Practice area, layout, and spacing come from the
+# question catalogue. A `sections:` list still works for custom titles.
+topics:
+  representing_numbers: {count: 2, difficulty: easy}
+  vertical_addition: {count: 3, difficulty: medium, digits: 3, allow_carrying: true}
+  vertical_subtraction: {count: 3, difficulty: medium, digits: 3, allow_borrowing: true}
+  vertical_multiplication: {count: 3, difficulty: easy, digits_top: 3, digits_bottom: 1, times_table: [3, 4]}
+  fractions: {count: 3, difficulty: easy, op_type: addition}
+  sequences: {count: 3, difficulty: easy, step_range: [1, 100], pattern_type: arithmetic}
+  reading_time: {count: 2, difficulty: medium}
+  date_duration: {count: 2, difficulty: hard}
+  speed_distance: {count: 1, difficulty: medium}
+  2d_shapes: {count: 2, difficulty: easy}
+  3d_objects: {count: 2, difficulty: easy}
+  compass_directions: {count: 2, difficulty: easy}
+  data: {count: 2, difficulty: easy}
+  chance: {count: 1, difficulty: easy}
