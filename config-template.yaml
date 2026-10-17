@@ -80,6 +80,15 @@ arithmetic_line_height: 1.0            # Multiplier on \baselineskip for the ver
 #
 # `layout` defaults to "list" if omitted - only specify it when you want
 # "grid_3col" (the side-by-side 3-column layout column arithmetic uses).
+#
+# Compact alternative — what the web app writes. Drop `sections` and list
+# every topic once. Practice area, layout, and spacing come from the
+# catalogue, so adding a topic is one line. Keep the long form below when
+# you want a custom section title, description, or working space.
+#
+# topics:
+#   representing_numbers: {count: 3, difficulty: medium}
+#   vertical_addition: {count: 6, difficulty: medium, digits: 3, allow_carrying: true}
 # ------------------------------------------------------------------------------
 sections:
 

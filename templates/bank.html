@@ -8,7 +8,7 @@
 <body>
   <header>
     <h1>Question Bank</h1>
-    <p class="subtitle">Add brand-new topics to <code>question_bank_data.yaml</code> — no Python required.</p>
+    <p class="subtitle">Add a topic, or another question on a topic you already have, in <code>question_bank_data.yaml</code>. No Python required.</p>
     <nav><a href="{{ url_for('index') }}">Back to picker</a> | <a href="{{ url_for('history') }}">View past results</a></nav>
   </header>
 
@@ -17,7 +17,7 @@
   {% endif %}
 
   {% if added %}
-  <div class="banner banner-success">Added topic <strong>{{ added }}</strong> — it's now available in the picker under its Practice Area, with one exact question to start. Come back here to add more topics, or hand-edit <code>question_bank_data.yaml</code> to add more questions to this one.</div>
+  <div class="banner banner-success">Saved <strong>{{ added }}</strong>{% if action == 'appended' %} — added another question to that topic{% else %} — new topic, available in the picker under its Practice Area{% endif %}. The file is rewritten in the short question-list layout.</div>
   {% endif %}
 
   <section class="global-options" style="display:block;">
@@ -51,17 +51,26 @@
   </section>
 
   <fieldset class="practice-area area-color-7">
-    <legend>Add a new topic</legend>
+    <legend>Add a question</legend>
     <form method="post" action="{{ url_for('bank_add') }}">
       <div class="advanced-fields" style="margin:0 0 1rem;">
         <label class="advanced-field">
+          Topic
+          <select name="topic_target" id="topic_target">
+            <option value="__new__">New topic</option>
+            {% for row in topics %}
+            <option value="{{ row.topic }}">{{ row.topic }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="advanced-field new-topic-only">
           Topic name
-          <input type="text" name="topic_name" placeholder="e.g. Telling Time Word Problems" required>
+          <input type="text" name="topic_name" placeholder="e.g. Telling Time Word Problems">
           <span class="field-help">Becomes the config.yaml key, e.g. "telling_time_word_problems".</span>
         </label>
-        <label class="advanced-field">
+        <label class="advanced-field new-topic-only">
           Practice area
-          <select name="practice_area" required>
+          <select name="practice_area">
             {% for area in areas %}
             <option value="{{ area }}">{{ area }}</option>
             {% endfor %}
@@ -75,11 +84,11 @@
             {% endfor %}
           </select>
         </label>
-        <label class="advanced-field">
+        <label class="advanced-field new-topic-only">
           NESA outcome code <span class="field-help">(optional)</span>
           <input type="text" name="outcome_code" placeholder="e.g. MA2-NSM-02" size="14">
         </label>
-        <label class="advanced-field">
+        <label class="advanced-field new-topic-only">
           Outcome stage <span class="field-help">(optional, only used with a code above)</span>
           <select name="outcome_stage">
             <option value="1">Stage 1</option>
@@ -87,22 +96,60 @@
             <option value="3">Stage 3</option>
           </select>
         </label>
+        <label class="advanced-field">
+          Kind
+          <select name="kind" id="question_kind">
+            <option value="exact">Exact question</option>
+            <option value="generate">Generated template</option>
+          </select>
+        </label>
       </div>
 
-      <label class="topic-name" style="display:block; margin-bottom:0.5rem;">Prompt (question text — plain LaTeX, e.g. $3 + 4 = ?$)</label>
+      <label class="topic-name" style="display:block; margin-bottom:0.5rem;">Prompt (question text — plain LaTeX, e.g. $3 + 4 = ?$ or Double {n}.)</label>
       <textarea name="prompt" rows="2" style="width:100%; font-family:inherit; font-size:0.95rem; padding:0.5rem; border-radius:6px; border:1px solid #ccc;" required></textarea>
 
-      <label class="topic-name" style="display:block; margin:0.75rem 0 0.5rem;">Solution (worked answer, shown in the Answer Key)</label>
+      <label class="topic-name" style="display:block; margin:0.75rem 0 0.5rem;">Solution (worked answer, shown in the Answer Key — placeholders like {answer} are filled in for a template)</label>
       <textarea name="solution" rows="2" style="width:100%; font-family:inherit; font-size:0.95rem; padding:0.5rem; border-radius:6px; border:1px solid #ccc;" required></textarea>
 
-      <label class="topic-name" style="display:block; margin:0.75rem 0 0.5rem;">Answer value (plain text, e.g. "7" or "3/4" — used for auto-marking)</label>
-      <input type="text" name="answer_value" style="width:100%; font-size:0.95rem; padding:0.5rem; border-radius:6px; border:1px solid #ccc;" required>
+      <label class="topic-name" style="display:block; margin:0.75rem 0 0.5rem;">Answer <span class="field-help" id="answer-help">(plain text, e.g. "7" or "3/4" — used for auto-marking)</span></label>
+      <input type="text" name="answer_value" id="answer_value" style="width:100%; font-size:0.95rem; padding:0.5rem; border-radius:6px; border:1px solid #ccc;">
+
+      <div id="generate-fields" style="display:none; margin-top:0.75rem;">
+        <label class="topic-name" style="display:block; margin-bottom:0.5rem;">Parameters, one per line</label>
+        <textarea name="params" rows="3" placeholder="n: 2..50&#10;start: North, East, South, West" style="width:100%; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:0.9rem; padding:0.5rem; border-radius:6px; border:1px solid #ccc;"></textarea>
+        <span class="field-help">A range (<code>2..50</code>) draws an integer. A comma-separated list draws one of those values. A single value stays fixed.</span>
+        <label class="topic-name" style="display:block; margin:0.75rem 0 0.5rem;">Compute expression for <code>{answer}</code></label>
+        <input type="text" name="compute" placeholder="n * 2" style="width:100%; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:0.9rem; padding:0.5rem; border-radius:6px; border:1px solid #ccc;">
+        <span class="field-help">Plain Python over the parameters above, plus abs/min/max/round/int/len and the compass helpers. Leave the answer box blank to use <code>{answer}</code>.</span>
+      </div>
 
       <div class="actions">
-        <button type="submit">Add Topic</button>
-        <span class="note">Creates a new topic with this one question — add more by editing <code>question_bank_data.yaml</code> directly afterwards.</span>
+        <button type="submit">Save question</button>
+        <span class="note">Writes the short layout in <code>question_bank_data.yaml</code>. Add another question to the same topic any time, from here or by appending to its <code>questions:</code> list.</span>
       </div>
     </form>
   </fieldset>
+  <script>
+    (function () {
+      var target = document.getElementById("topic_target");
+      var kind = document.getElementById("question_kind");
+      var generateFields = document.getElementById("generate-fields");
+      var answerHelp = document.getElementById("answer-help");
+      function sync() {
+        var isNew = target.value === "__new__";
+        document.querySelectorAll(".new-topic-only").forEach(function (el) {
+          el.style.display = isNew ? "" : "none";
+        });
+        var generated = kind.value === "generate";
+        generateFields.style.display = generated ? "" : "none";
+        answerHelp.textContent = generated
+          ? "(optional — defaults to {answer} from the compute expression)"
+          : "(plain text, e.g. \"7\" or \"3/4\" — used for auto-marking)";
+      }
+      target.addEventListener("change", sync);
+      kind.addEventListener("change", sync);
+      sync();
+    })();
+  </script>
 </body>
 </html>

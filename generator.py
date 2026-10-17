@@ -1,3 +1,5 @@
+import copy
+import json
 import random
 import math
 import os
@@ -475,12 +477,17 @@ def _calendar_block_for_range(start_date: datetime, end_date: datetime) -> str:
 # "generate" templates that produce many random variants - without touching
 # any Python. See README.md's "Adding New Question Types" section.
 #
-# This file is trusted/author-edited, the same trust level as config.yaml:
-# a `generate` entry's `compute` expressions run through a restricted
-# eval() (no builtins, only the params you defined plus a small set of
-# helper constants/functions below) so a typo gives you a clear Python
-# error rather than silently doing nothing - but it is NOT a sandbox for
-# untrusted input, so don't wire this file up to accept arbitrary web input.
+# Authors write the compact form (a flat `questions:` list, `n: 2..50`,
+# `start: [North, East]`, `compute: n * 2`). The loader below normalises
+# that, and the older nested `bank -> difficulty -> exact/generate` form,
+# into one canonical structure so the rest of this file only handles one
+# shape. This file is trusted/author-edited, the same trust level as
+# config.yaml: a `generate` entry's `compute` expressions run through a
+# restricted eval() (no builtins, only the params you defined plus a small
+# set of helper constants/functions below) so a typo gives you a clear
+# Python error rather than silently doing nothing - but it is NOT a sandbox
+# for untrusted input, so don't wire this file up to accept arbitrary web
+# input.
 # ------------------------------------------------------------------------
 
 _BANK_SAFE_GLOBALS: Dict[str, Any] = {
@@ -499,6 +506,399 @@ def _safe_eval(expr: str, context: Dict[str, Any]) -> Any:
     return eval(expr, {"__builtins__": {}}, namespace)  # noqa: S307 - restricted namespace, trusted file (see module docstring above)
 
 
+_BANK_DIFFICULTIES = ("easy", "medium", "hard", "genius")
+
+# Topic-level keys the compact/legacy loaders understand. Anything else is
+# kept and written back, so a hand-added note doesn't disappear on save.
+_TOPIC_META_KEYS = {
+    "practice_area", "area", "layout_hint", "layout", "default_count", "count",
+    "outcomes", "stage", "q_type", "bank", "questions",
+}
+
+# Keys that belong to the question itself rather than to a drawn parameter.
+_QUESTION_RESERVED = {
+    "difficulty", "prompt", "q", "solution", "s", "answer", "answer_value", "a",
+    "params", "compute",
+}
+
+
+class FlowMap(dict):
+    """A dict PyYAML should emit in flow style: {code: MA1-GM-01, stage: 1}."""
+
+
+class FlowList(list):
+    """A list PyYAML should emit in flow style: [North, East, South]."""
+
+
+def _repr_flow_map(dumper: yaml.SafeDumper, data: FlowMap):
+    return dumper.represent_mapping("tag:yaml.org,2002:map", list(data.items()), flow_style=True)
+
+
+def _repr_flow_list(dumper: yaml.SafeDumper, data: FlowList):
+    return dumper.represent_sequence("tag:yaml.org,2002:seq", list(data), flow_style=True)
+
+
+yaml.add_representer(FlowMap, _repr_flow_map, Dumper=yaml.SafeDumper)
+yaml.add_representer(FlowList, _repr_flow_list, Dumper=yaml.SafeDumper)
+
+
+def _parse_param_spec(value: Any) -> Dict[str, Any]:
+    """Long form ({type: choice|int_range, ...}) or the short forms an author
+    actually types: "2..50", [North, East], {min: 2, max: 8}, or one fixed value."""
+    if isinstance(value, dict) and "type" in value:
+        return value
+    if isinstance(value, dict) and "min" in value and "max" in value:
+        return {"type": "int_range", "min": int(value["min"]), "max": int(value["max"])}
+    if isinstance(value, str):
+        match = re.fullmatch(r"\s*(-?\d+)\s*\.\.\s*(-?\d+)\s*", value)
+        if match:
+            return {"type": "int_range", "min": int(match.group(1)), "max": int(match.group(2))}
+    if isinstance(value, list):
+        return {"type": "choice", "values": list(value)}
+    return {"type": "choice", "values": [value]}
+
+
+def _normalize_outcomes(raw: Any, stage_default: int) -> Dict[str, Dict[str, Any]]:
+    """A bare outcome code applies to every tier. A {code, stage} mapping does
+    the same. A per-difficulty mapping is kept, and a bare code under one
+    difficulty picks up the topic's stage."""
+    if not raw:
+        return {}
+    if isinstance(raw, str):
+        return {diff: {"code": raw, "stage": stage_default} for diff in _BANK_DIFFICULTIES}
+
+    if not isinstance(raw, dict):
+        return {}
+
+    if "code" in raw and not any(diff in raw for diff in _BANK_DIFFICULTIES):
+        info: Dict[str, Any] = {"code": raw["code"], "stage": raw.get("stage", stage_default)}
+        if raw.get("capability"):
+            info["capability"] = raw["capability"]
+        return {diff: dict(info) for diff in _BANK_DIFFICULTIES}
+
+    out: Dict[str, Dict[str, Any]] = {}
+    for diff, info in raw.items():
+        if isinstance(info, str):
+            out[str(diff).strip().lower()] = {"code": info, "stage": stage_default}
+        elif isinstance(info, dict):
+            entry = dict(info)
+            entry.setdefault("stage", stage_default)
+            out[str(diff).strip().lower()] = entry
+    return out
+
+
+def _question_difficulties(raw: Any) -> List[str]:
+    if raw is None or raw == "":
+        return ["medium"]
+    if raw == "all" or raw == "*":
+        return list(_BANK_DIFFICULTIES)
+    if isinstance(raw, str):
+        return [raw.strip().lower()]
+    if isinstance(raw, list):
+        diffs: List[str] = []
+        for item in raw:
+            diffs.extend(_question_difficulties(item))
+        return diffs
+    return ["medium"]
+
+
+def _normalize_question_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
+    """One author-facing question (compact or legacy) -> {kind, body} in the
+    shape generate_from_bank already walks."""
+    if not isinstance(entry, dict):
+        raise ValueError(f"Question entry must be a mapping, got {type(entry).__name__}")
+
+    prompt = entry.get("prompt", entry.get("q"))
+    solution = entry.get("solution", entry.get("s"))
+    if prompt is None or solution is None:
+        raise ValueError("Each question needs a prompt and a solution")
+
+    params_raw: Dict[str, Any] = {}
+    explicit_params = entry.get("params") or {}
+    if isinstance(explicit_params, dict):
+        params_raw.update(explicit_params)
+    for key, value in entry.items():
+        if key not in _QUESTION_RESERVED:
+            params_raw[key] = value
+
+    compute = entry.get("compute")
+    is_generate = bool(params_raw or compute)
+    answer = entry.get("answer_value", entry.get("answer", entry.get("a")))
+
+    if not is_generate:
+        return {
+            "kind": "exact",
+            "body": {
+                "prompt": prompt,
+                "solution": solution,
+                "answer_value": "" if answer is None else str(answer),
+            },
+        }
+
+    params = {name: _parse_param_spec(spec) for name, spec in params_raw.items()}
+    if isinstance(compute, str):
+        compute_map: Dict[str, Any] = {"answer": compute}
+    elif isinstance(compute, dict):
+        compute_map = dict(compute)
+    else:
+        compute_map = {}
+
+    if answer is None:
+        answer_value = "{answer}" if "answer" in compute_map else ""
+    else:
+        answer_value = str(answer)
+
+    body: Dict[str, Any] = {
+        "prompt": prompt,
+        "solution": solution,
+        "answer_value": answer_value,
+    }
+    if params:
+        body["params"] = params
+    if compute_map:
+        body["compute"] = compute_map
+    return {"kind": "generate", "body": body}
+
+
+def _empty_tier() -> Dict[str, list]:
+    return {"exact": [], "generate": []}
+
+
+def normalize_bank_topic(raw: Dict[str, Any]) -> Dict[str, Any]:
+    """Compact (`questions:`) and legacy (`bank:`) topic blocks both become
+    the canonical topic dict the catalogue and generator read."""
+    if not isinstance(raw, dict):
+        raise ValueError("A topic must be a mapping")
+
+    try:
+        stage_default = int(raw.get("stage", 2))
+    except (TypeError, ValueError):
+        stage_default = 2
+
+    canonical: Dict[str, Any] = {
+        "practice_area": raw.get("practice_area", raw.get("area", "General Quiz")),
+        "layout_hint": raw.get("layout_hint", raw.get("layout", "list")),
+        "default_count": raw.get("default_count", raw.get("count", 3)),
+        "outcomes": _normalize_outcomes(raw.get("outcomes"), stage_default),
+        "bank": {},
+    }
+    if "q_type" in raw:
+        canonical["q_type"] = raw["q_type"]
+    for key, value in raw.items():
+        if key not in _TOPIC_META_KEYS:
+            canonical[key] = value
+
+    bank: Dict[str, Dict[str, list]] = canonical["bank"]
+
+    def _tier(diff: str) -> Dict[str, list]:
+        return bank.setdefault(diff, _empty_tier())
+
+    nested = raw.get("bank") or {}
+    if isinstance(nested, dict):
+        for diff, tier in nested.items():
+            if not isinstance(tier, dict):
+                continue
+            dest = _tier(str(diff).strip().lower())
+            for kind in ("exact", "generate"):
+                for entry in tier.get(kind) or []:
+                    normalized = _normalize_question_entry(entry)
+                    # A legacy `exact:` list stays exact even if a future shorthand
+                    # key sneaks in; `generate:` always stores the generated body.
+                    stored_kind = kind if kind == "exact" else normalized["kind"]
+                    dest[stored_kind].append(normalized["body"])
+
+    for entry in raw.get("questions") or []:
+        if not isinstance(entry, dict):
+            raise ValueError("Each item under questions: must be a mapping")
+        normalized = _normalize_question_entry(entry)
+        for diff in _question_difficulties(entry.get("difficulty")):
+            _tier(diff)[normalized["kind"]].append(normalized["body"])
+
+    canonical["bank"] = {
+        diff: tier for diff, tier in bank.items()
+        if tier.get("exact") or tier.get("generate")
+    }
+    return canonical
+
+
+def _compact_param(spec: Dict[str, Any]) -> Any:
+    if not isinstance(spec, dict):
+        return spec
+    if spec.get("type") == "int_range":
+        return f"{int(spec['min'])}..{int(spec['max'])}"
+    if spec.get("type") == "choice":
+        values = list(spec.get("values") or [])
+        if len(values) == 1:
+            return values[0]
+        return FlowList(values)
+    return spec
+
+
+def _compact_question(kind: str, body: Dict[str, Any], difficulties: List[str]) -> Dict[str, Any]:
+    question: Dict[str, Any] = {}
+    if difficulties == list(_BANK_DIFFICULTIES):
+        question["difficulty"] = "all"
+    elif len(difficulties) == 1:
+        question["difficulty"] = difficulties[0]
+    else:
+        question["difficulty"] = FlowList(difficulties)
+
+    question["prompt"] = body.get("prompt", "")
+    question["solution"] = body.get("solution", "")
+
+    if kind == "generate":
+        for name, spec in (body.get("params") or {}).items():
+            question[name] = _compact_param(spec)
+        compute = body.get("compute") or {}
+        if list(compute.keys()) == ["answer"]:
+            question["compute"] = compute["answer"]
+        elif compute:
+            question["compute"] = dict(compute)
+        answer_value = body.get("answer_value", "")
+        if answer_value not in ("", "{answer}"):
+            question["answer"] = answer_value
+    else:
+        question["answer"] = body.get("answer_value", "")
+    return question
+
+
+def compact_bank_topic(canonical: Dict[str, Any]) -> Dict[str, Any]:
+    """Canonical topic -> the short YAML shape we write back to disk."""
+    compact: Dict[str, Any] = {
+        "area": canonical.get("practice_area", "General Quiz"),
+        "count": canonical.get("default_count", 3),
+    }
+    if canonical.get("layout_hint") and canonical.get("layout_hint") != "list":
+        compact["layout"] = canonical["layout_hint"]
+    if canonical.get("q_type") and canonical.get("q_type") != "math":
+        compact["q_type"] = canonical["q_type"]
+
+    outcomes = canonical.get("outcomes") or {}
+    if outcomes:
+        signatures = []
+        for info in outcomes.values():
+            signatures.append(json.dumps(info or {}, sort_keys=True, default=str))
+        same_everywhere = (
+            len(set(signatures)) == 1 and set(outcomes) == set(_BANK_DIFFICULTIES)
+        )
+        if same_everywhere:
+            info = next(iter(outcomes.values())) or {}
+            compact["outcomes"] = info.get("code", "")
+            if "stage" in info:
+                compact["stage"] = info["stage"]
+        else:
+            compact_outcomes: Dict[str, Any] = {}
+            ordered = [d for d in _BANK_DIFFICULTIES if d in outcomes]
+            ordered += [d for d in outcomes if d not in ordered]
+            for diff in ordered:
+                info = outcomes[diff] or {}
+                kept = {k: info[k] for k in ("code", "stage", "capability") if k in info}
+                compact_outcomes[diff] = FlowMap(kept)
+            compact["outcomes"] = compact_outcomes
+
+    groups: List[list] = []
+    bank = canonical.get("bank") or {}
+    diff_order = [d for d in _BANK_DIFFICULTIES if d in bank]
+    diff_order += [d for d in bank if d not in diff_order]
+    for diff in diff_order:
+        tier = bank.get(diff) or {}
+        for kind in ("exact", "generate"):
+            for body in tier.get(kind) or []:
+                signature = (kind, json.dumps(body, sort_keys=True, default=str))
+                placed = False
+                for group in groups:
+                    if group[0] == signature and diff not in group[3]:
+                        group[3].append(diff)
+                        placed = True
+                        break
+                if not placed:
+                    groups.append([signature, kind, body, [diff]])
+
+    compact["questions"] = [
+        _compact_question(kind, body, diffs) for _sig, kind, body, diffs in groups
+    ]
+
+    for key, value in canonical.items():
+        if key not in ("practice_area", "layout_hint", "default_count", "outcomes", "bank", "q_type"):
+            compact[key] = value
+    return compact
+
+
+_BANK_FILE_HEADER = """\
+# ==============================================================================
+# User-extensible question bank
+# ==============================================================================
+# One topic, then a flat questions: list. No Python. A topic here is available
+# everywhere a built-in topic is (config, the web picker, the PDF, the quiz).
+# A name already used by generator.py is left to that Python generator.
+#
+#   topics:
+#     doubling:
+#       area: Patterns & Algebra
+#       count: 3
+#       stage: 2
+#       outcomes: MA2-MR-01          # one code applies to every difficulty
+#       questions:
+#         - difficulty: medium
+#           prompt: "Double 7."
+#           solution: "$7 \\\\times 2 = \\\\mathbf{14}$"
+#           answer: "14"
+#         - difficulty: medium
+#           prompt: "Double {n}."
+#           n: 2..50                  # or start: [North, East, South, West]
+#           compute: n * 2            # sets {answer}; a mapping sets several names
+#           solution: "${n} \\\\times 2 = \\\\mathbf{{{answer}}}$"
+#
+# difficulty defaults to medium. difficulty: all (or a list) copies one question
+# onto several tiers. Literal LaTeX braces are doubled, same as an f-string.
+# compute is a restricted Python expression: your params, earlier compute
+# names, and CARDINAL4 / COMPASS8 / CARDINAL_VECTOR / abs / min / max / round /
+# int / len. Trusted file, same as config.yaml, not a sandbox.
+#
+# The older nested bank -> easy/medium/hard/genius -> exact/generate layout
+# still loads. The web editor rewrites topics in the compact layout above.
+# ==============================================================================
+
+"""
+
+
+def _dump_topics_block(topics: Dict[str, Dict[str, Any]]) -> str:
+    parts: List[str] = []
+    for name, canonical in topics.items():
+        block = yaml.safe_dump(
+            {name: compact_bank_topic(canonical)},
+            sort_keys=False,
+            allow_unicode=True,
+            default_flow_style=False,
+            width=10**6,
+        )
+        indented = "\n".join(("  " + line if line.strip() else line) for line in block.splitlines())
+        parts.append(indented + "\n")
+    return "".join(parts)
+
+
+def render_question_bank(topics: Dict[str, Dict[str, Any]], header: Optional[str] = None) -> str:
+    head = header if header is not None else _BANK_FILE_HEADER
+    # One blank line between the comment header and `topics:`, however many
+    # trailing newlines the preserved header arrived with.
+    head = head.rstrip("\n")
+    body = _dump_topics_block(topics)
+    return f"{head}\n\ntopics:\n{body if body else ''}"
+
+
+def _bank_header_from_file(path: str) -> str:
+    if not os.path.exists(path):
+        return _BANK_FILE_HEADER
+    with open(path, "r", encoding="utf-8") as f:
+        text = f.read()
+    marker = text.find("\ntopics:")
+    if text.startswith("topics:"):
+        return _BANK_FILE_HEADER
+    if marker == -1:
+        return _BANK_FILE_HEADER
+    return text[: marker + 1]
+
+
 QUESTION_BANK_DATA_PATH = os.path.join(os.path.dirname(__file__), "question_bank_data.yaml")
 
 
@@ -511,7 +911,49 @@ def _load_question_bank_data() -> Dict[str, Dict[str, Any]]:
     except yaml.YAMLError as e:
         print(f"Warning: Could not parse question_bank_data.yaml: {e}")
         return {}
-    return data.get("topics", {}) or {}
+    topics = data.get("topics", {}) or {}
+    normalised: Dict[str, Dict[str, Any]] = {}
+    for name, raw in topics.items():
+        try:
+            normalised[name] = normalize_bank_topic(raw or {})
+        except (TypeError, ValueError) as e:
+            print(f"Warning: Skipping question_bank_data.yaml topic '{name}': {e}")
+    return normalised
+
+
+def write_question_bank(topics: Dict[str, Dict[str, Any]], path: Optional[str] = None) -> None:
+    """Rewrites question_bank_data.yaml in the compact layout, preserving the
+    comment header above the topics: key."""
+    path = path or QUESTION_BANK_DATA_PATH
+    header = _bank_header_from_file(path)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(render_question_bank(topics, header))
+
+
+def upsert_bank_question(
+    slug: str,
+    question: Dict[str, Any],
+    difficulties: Optional[List[str]] = None,
+    topic_defaults: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Adds one question to a topic (creating the topic from topic_defaults
+    when it isn't there yet) and rewrites the bank file. Returns 'created'
+    or 'appended'."""
+    topics = {name: copy.deepcopy(data) for name, data in CUSTOM_TOPIC_BANK.items()}
+    created = slug not in topics
+    if created:
+        topics[slug] = normalize_bank_topic(topic_defaults or {})
+    topic = topics[slug]
+    normalized = _normalize_question_entry(question)
+    diffs = difficulties or _question_difficulties(question.get("difficulty"))
+    for diff in diffs:
+        tier = topic.setdefault("bank", {}).setdefault(diff, _empty_tier())
+        tier.setdefault("exact", [])
+        tier.setdefault("generate", [])
+        tier[normalized["kind"]].append(copy.deepcopy(normalized["body"]))
+    write_question_bank(topics)
+    reload_custom_topic_bank()
+    return "created" if created else "appended"
 
 
 CUSTOM_TOPIC_BANK: Dict[str, Dict[str, Any]] = _load_question_bank_data()
@@ -1987,6 +2429,118 @@ def tex_escape(text: str) -> str:
     return re.sub(r'(?<!\\)&', r'\\&', text)
 
 
+_CONFIG_GLOBAL_KEYS = (
+    "title", "subtitle", "stage", "header_left", "seed", "include_solutions",
+    "font_size", "working_space", "arithmetic_column_width", "arithmetic_line_height",
+)
+
+_CONFIG_ARITHMETIC_NOTES = {
+    "arithmetic_column_width": (
+        "Horizontal gap between digit columns (xlop default: 2ex). Try 2.5ex-3.5ex for more room."
+    ),
+    "arithmetic_line_height": (
+        "Multiplier on \\baselineskip for the vertical gap between rows (xlop default: 1.0). "
+        "Try 1.2-1.5 for more room."
+    ),
+}
+
+
+def dump_workbook_config(config: Dict[str, Any]) -> str:
+    """Compact config.yaml: globals, then one flow-style line per topic.
+
+    `sections:` is still accepted by the loader; this writer uses the flat
+    `topics:` map so a new topic doesn't need a section wrapper.
+    """
+    globals_only = {key: config[key] for key in _CONFIG_GLOBAL_KEYS if key in config}
+    dumped = yaml.safe_dump(globals_only, sort_keys=False, allow_unicode=True, width=10**6)
+    lines: List[str] = []
+    for line in dumped.splitlines():
+        key = line.split(":", 1)[0]
+        note = _CONFIG_ARITHMETIC_NOTES.get(key)
+        if note:
+            lines.append(f"# {note}")
+        lines.append(line)
+    lines.append("")
+    lines.append("# One line per topic. Practice area, layout, and spacing come from the")
+    lines.append("# question catalogue. A `sections:` list still works for custom titles.")
+    lines.append("topics:")
+    topics = config.get("topics") or {}
+    for name, topic_cfg in topics.items():
+        if isinstance(topic_cfg, dict):
+            flow_cfg = FlowMap({
+                key: (FlowList(value) if isinstance(value, list) else value)
+                for key, value in topic_cfg.items()
+            })
+            rendered = yaml.safe_dump(
+                flow_cfg, sort_keys=False, default_flow_style=True, width=10**6,
+            ).strip()
+        else:
+            rendered = yaml.safe_dump(topic_cfg, sort_keys=False).strip()
+        lines.append(f"  {name}: {rendered}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def expand_workbook_sections(config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Returns the section list the pipeline walks.
+
+    A hand-written `sections:` list is used as-is. Otherwise a flat `topics:`
+    map — one line per topic — is grouped by Practice Area from the catalogue,
+    so config.yaml doesn't have to repeat a section wrapper for every area.
+    """
+    sections = config.get("sections")
+    if isinstance(sections, list) and sections:
+        return sections
+
+    topics = config.get("topics") or {}
+    if not isinstance(topics, dict) or not topics:
+        return []
+
+    # Imported lazily: question_bank imports this module at load time.
+    import question_bank
+
+    default_working_space = config.get("working_space", "2.5cm")
+    grouped: Dict[str, Dict[str, Any]] = {}
+    seen_order: List[str] = []
+
+    def _placement(topic: str) -> tuple:
+        meta = question_bank.TOPIC_CATALOGUE.get(topic)
+        if meta:
+            return meta["practice_area"], meta.get("layout_hint", "list")
+        bank_topic = CUSTOM_TOPIC_BANK.get(topic) or {}
+        return bank_topic.get("practice_area", "General Quiz"), bank_topic.get("layout_hint", "list")
+
+    for topic, topic_cfg in topics.items():
+        if isinstance(topic_cfg, int):
+            topic_cfg = {"count": topic_cfg}
+        elif not isinstance(topic_cfg, dict):
+            topic_cfg = {"count": 1}
+        area, layout = _placement(topic)
+        section = grouped.get(area)
+        if section is None:
+            section = {"title": area, "description": "", "topics": {}}
+            if layout != "list":
+                section["layout"] = layout
+            section["working_space"] = "3.5cm" if layout == "grid_3col" else default_working_space
+            grouped[area] = section
+            seen_order.append(area)
+        elif layout == "grid_3col" and section.get("layout") != "grid_3col":
+            section["layout"] = layout
+            section["working_space"] = "3.5cm"
+        section["topics"][topic] = topic_cfg
+
+    ordered: List[Dict[str, Any]] = []
+    emitted = set()
+    for area in question_bank.PRACTICE_AREA_ORDER:
+        if area in grouped:
+            ordered.append(grouped[area])
+            emitted.add(area)
+    for area in seen_order:
+        if area not in emitted:
+            ordered.append(grouped[area])
+    return ordered
+
+
 def generate_workbook_pipeline(config: Dict[str, Any]) -> Dict[str, Any]:
     """Pipeline method that processes config.yaml and builds sections and questions."""
     seed = config.get("seed")
@@ -2003,72 +2557,33 @@ def generate_workbook_pipeline(config: Dict[str, Any]) -> Dict[str, Any]:
     all_questions: List[Question] = []
     global_id = 1
 
-    if "sections" in config and isinstance(config["sections"], list):
-        for sec_cfg in config["sections"]:
-            sec_title = tex_escape(sec_cfg.get("title", sec_cfg.get("name", "Practice Section")))
-            sec_desc = tex_escape(sec_cfg.get("description", ""))
-            sec_layout = sec_cfg.get("layout", "list")
-            sec_working_space = sec_cfg.get("working_space", default_working_space)
-            sec_questions = []
+    for sec_cfg in expand_workbook_sections(config):
+        sec_title = tex_escape(sec_cfg.get("title", sec_cfg.get("name", "Practice Section")))
+        sec_desc = tex_escape(sec_cfg.get("description", ""))
+        sec_layout = sec_cfg.get("layout", "list")
+        sec_working_space = sec_cfg.get("working_space", default_working_space)
+        sec_questions = []
 
-            topics_map = sec_cfg.get("topics", {})
-            for topic, topic_cfg in topics_map.items():
-                if isinstance(topic_cfg, int):
-                    topic_cfg = {"count": topic_cfg}
-                count = topic_cfg.get("count", 1)
-                for i in range(count):
-                    q = build_question_for_topic(qb, topic, topic_cfg, index=i)
-                    q.id = global_id
-                    q.section = tex_escape(q.section)
-                    global_id += 1
-                    sec_questions.append(q)
-                    all_questions.append(q)
-
-            processed_sections.append({
-                "title": sec_title,
-                "description": sec_desc,
-                "layout": sec_layout,
-                "working_space": sec_working_space,
-                "questions": sec_questions
-            })
-    else:
-        topics_map = config.get("topics", {})
-        column_qs = []
-        list_qs = []
-
+        topics_map = sec_cfg.get("topics", {})
         for topic, topic_cfg in topics_map.items():
             if isinstance(topic_cfg, int):
                 topic_cfg = {"count": topic_cfg}
             count = topic_cfg.get("count", 1)
             for i in range(count):
                 q = build_question_for_topic(qb, topic, topic_cfg, index=i)
+                q.id = global_id
                 q.section = tex_escape(q.section)
-                if q.layout_hint == "grid_3col":
-                    column_qs.append(q)
-                else:
-                    list_qs.append(q)
+                global_id += 1
+                sec_questions.append(q)
+                all_questions.append(q)
 
-        for q in column_qs + list_qs:
-            q.id = global_id
-            global_id += 1
-            all_questions.append(q)
-
-        if column_qs:
-            processed_sections.append({
-                "title": "1. Column Arithmetic",
-                "description": "Solve each problem vertically.",
-                "layout": "grid_3col",
-                "working_space": default_working_space,
-                "questions": column_qs
-            })
-        if list_qs:
-            processed_sections.append({
-                "title": "2. Practice Questions \\& Applications",
-                "description": "",
-                "layout": "list",
-                "working_space": default_working_space,
-                "questions": list_qs
-            })
+        processed_sections.append({
+            "title": sec_title,
+            "description": sec_desc,
+            "layout": sec_layout,
+            "working_space": sec_working_space,
+            "questions": sec_questions
+        })
 
     font_size = config.get("font_size", "12pt")
     if isinstance(font_size, (int, float)):

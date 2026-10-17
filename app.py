@@ -32,10 +32,13 @@ def _load_existing_config() -> Dict[str, Any]:
 def _existing_topic_settings(config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     """topic -> its full saved topic_cfg dict (count, difficulty, and any
     advanced params like digits/times_table/step_range) pulled out of a
-    previously saved config.yaml, used to pre-fill the picker form."""
+    previously saved config.yaml, used to pre-fill the picker form.
+    Reads either a flat `topics:` map or a legacy `sections:` list."""
     settings: Dict[str, Dict[str, Any]] = {}
-    for section in config.get("sections", []) or []:
+    for section in generator.expand_workbook_sections(config):
         for topic, topic_cfg in (section.get("topics") or {}).items():
+            if isinstance(topic_cfg, int):
+                topic_cfg = {"count": topic_cfg}
             if isinstance(topic_cfg, dict):
                 settings[topic] = topic_cfg
     return settings
@@ -121,11 +124,9 @@ def _save_config_from_form(form) -> Dict[str, Any]:
     seed = int(seed_raw) if seed_raw.lstrip("-").isdigit() else None
 
     catalogue = question_bank.get_catalogue()
-    sections: List[Dict[str, Any]] = []
+    topics_cfg: Dict[str, Any] = {}
 
     for area in question_bank.PRACTICE_AREA_ORDER:
-        topics_cfg: Dict[str, Any] = {}
-        layout_hint = "list"
         for entry in catalogue[area]:
             topic = entry["topic"]
             if form.get(f"enable_{topic}") != "on":
@@ -144,35 +145,27 @@ def _save_config_from_form(form) -> Dict[str, Any]:
                     continue  # e.g. blank times_table -> fully random, matches generator.py default
                 topic_cfg[field["name"]] = value
             topics_cfg[topic] = topic_cfg
-            layout_hint = entry["layout_hint"]
 
-        if not topics_cfg:
-            continue
-
-        section: Dict[str, Any] = {
-            "title": area,
-            "description": "",
-            "working_space": "3.5cm" if layout_hint == "grid_3col" else "2.5cm",
-            "topics": topics_cfg,
-        }
-        if layout_hint != "list":  # "list" is generate_workbook_pipeline's own default - no need to spell it out
-            section["layout"] = layout_hint
-        sections.append(section)
-
-    config = {
+    # The picker only edits stage, seed, and the topic list. Keep spacing and
+    # header knobs that were set by hand in config.yaml.
+    existing = _load_existing_config()
+    config: Dict[str, Any] = {
         "title": f"Stage {stage} Mathematics Practice Workbook",
         "subtitle": f"NSW Curriculum Aligned (NESA 2022 Stage {stage})",
         "stage": stage,
-        "header_left": "NSW Primary Mathematics Practice",
+        "header_left": existing.get("header_left") or "NSW Primary Mathematics Practice",
         "seed": seed,
-        "include_solutions": True,
-        "font_size": "14pt",
-        "working_space": "2.5cm",
-        "sections": sections,
+        "include_solutions": existing.get("include_solutions", True),
+        "font_size": existing.get("font_size") or "14pt",
+        "working_space": existing.get("working_space") or "2.5cm",
     }
+    for key in ("arithmetic_column_width", "arithmetic_line_height"):
+        if key in existing:
+            config[key] = existing[key]
+    config["topics"] = topics_cfg
 
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        yaml.safe_dump(config, f, sort_keys=False, allow_unicode=True)
+        f.write(generator.dump_workbook_config(config))
 
     return config
 
@@ -207,7 +200,7 @@ def _build_question_pool(config: Dict[str, Any]) -> list:
     qb = QuestionBank(seed=config.get("seed"))
     questions = []
     global_id = 1
-    for section in config.get("sections", []) or []:
+    for section in generator.expand_workbook_sections(config):
         for topic, topic_cfg in (section.get("topics") or {}).items():
             if isinstance(topic_cfg, int):
                 topic_cfg = {"count": topic_cfg}
@@ -259,15 +252,37 @@ def history():
     return render_template("history.html", entries=entries, student=student or "")
 
 
-_BANK_FILE_FALLBACK_HEADER = (
-    "# ==============================================================================\n"
-    "# User-extensible question bank\n"
-    "# ==============================================================================\n"
-    "# See README.md's \"Extending the Question Bank\" section for the full format\n"
-    "# (exact vs generate entries, safe eval, str.format() escaping).\n"
-    "# ==============================================================================\n\n"
-    "topics:\n"
-)
+def _parse_param_lines(text: str) -> Dict[str, Any]:
+    """One parameter per line, in the same shorthand the YAML uses.
+
+    n: 2..50
+    start: North, East, South, West
+    steps: 4
+    """
+    params: Dict[str, Any] = {}
+    for lineno, raw_line in enumerate((text or "").splitlines(), start=1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if ":" not in line:
+            raise ValueError(f"Param line {lineno} needs a name and a value, e.g. n: 2..50")
+        name, _, raw = line.partition(":")
+        name = name.strip()
+        raw = raw.strip()
+        if not name or not raw:
+            raise ValueError(f"Param line {lineno} needs a name and a value, e.g. n: 2..50")
+        if re.fullmatch(r"-?\d+\s*\.\.\s*-?\d+", raw):
+            params[name] = re.sub(r"\s+", "", raw)
+        elif raw.startswith("[") and raw.endswith("]"):
+            params[name] = [part.strip().strip("'\"") for part in raw[1:-1].split(",") if part.strip()]
+        elif "," in raw:
+            params[name] = [part.strip() for part in raw.split(",") if part.strip()]
+        else:
+            try:
+                params[name] = int(raw)
+            except ValueError:
+                params[name] = raw
+    return params
 
 
 def _bank_topic_summary() -> List[Dict[str, Any]]:
@@ -297,6 +312,7 @@ def bank():
         topics=_bank_topic_summary(),
         areas=question_bank.PRACTICE_AREA_ORDER,
         added=request.args.get("added"),
+        action=request.args.get("action"),
         error=request.args.get("error"),
     )
 
@@ -304,69 +320,87 @@ def bank():
 @app.route("/bank/add", methods=["POST"])
 def bank_add():
     form = request.form
+    target = (form.get("topic_target") or "__new__").strip()
     raw_name = (form.get("topic_name") or "").strip()
     practice_area = (form.get("practice_area") or "").strip()
     difficulty = (form.get("difficulty") or "medium").strip().lower()
     outcome_code = (form.get("outcome_code") or "").strip()
     outcome_stage_raw = (form.get("outcome_stage") or "").strip()
+    kind = (form.get("kind") or "exact").strip().lower()
     prompt = (form.get("prompt") or "").strip()
     solution = (form.get("solution") or "").strip()
     answer_value = (form.get("answer_value") or "").strip()
 
-    slug = re.sub(r"[^a-z0-9_]+", "_", raw_name.lower()).strip("_")
+    creating = target in ("", "__new__")
+    if creating:
+        slug = re.sub(r"[^a-z0-9_]+", "_", raw_name.lower()).strip("_")
+    else:
+        slug = target
 
     error = None
-    if not raw_name or not slug:
+    params: Dict[str, Any] = {}
+    try:
+        if kind == "generate":
+            params = _parse_param_lines(form.get("params") or "")
+    except ValueError as exc:
+        error = str(exc)
+
+    compute = (form.get("compute") or "").strip()
+
+    if error:
+        pass
+    elif creating and (not raw_name or not slug):
         error = "Topic name is required."
+    elif not creating and slug not in generator.CUSTOM_TOPIC_BANK:
+        error = f"'{slug}' isn't a bank topic. Pick it from the list or choose New topic."
     elif difficulty not in ("easy", "medium", "hard", "genius"):
         error = "Difficulty must be easy, medium, hard, or genius."
-    elif not practice_area:
-        error = "Practice area is required."
-    elif not prompt or not solution or not answer_value:
-        error = "Prompt, solution, and answer are all required."
+    elif creating and not practice_area:
+        error = "Practice area is required for a new topic."
+    elif not prompt or not solution:
+        error = "Prompt and solution are both required."
+    elif kind == "exact" and not answer_value:
+        error = "An exact question needs an answer."
+    elif kind == "generate" and not params and not compute:
+        error = "A generated question needs at least one parameter or a compute expression."
+    elif kind not in ("exact", "generate"):
+        error = "Question kind must be exact or generated."
     elif slug in generator.TOPIC_GENERATORS and slug not in generator.CUSTOM_TOPIC_BANK:
         error = f"'{slug}' is already a built-in topic name - pick a different name."
-    elif slug in generator.CUSTOM_TOPIC_BANK:
-        error = (
-            f"'{slug}' already exists in question_bank_data.yaml - this form only creates brand-new "
-            f"topics. Add more questions to an existing topic by editing that file directly."
-        )
 
     if error:
         return redirect(url_for("bank", error=error))
 
-    new_topic: Dict[str, Any] = {
-        "practice_area": practice_area,
-        "default_count": 3,
-        "bank": {
-            difficulty: {
-                "exact": [
-                    {"prompt": prompt, "solution": solution, "answer_value": answer_value}
-                ]
-            }
-        },
-    }
-    if outcome_code:
-        try:
-            outcome_stage = int(outcome_stage_raw)
-        except ValueError:
-            outcome_stage = 2
-        new_topic["outcomes"] = {difficulty: {"code": outcome_code, "stage": outcome_stage}}
+    question: Dict[str, Any] = {"prompt": prompt, "solution": solution, "difficulty": difficulty}
+    if answer_value:
+        question["answer"] = answer_value
+    if kind == "generate":
+        question.update(params)
+        if compute:
+            question["compute"] = compute
 
-    block = yaml.safe_dump({slug: new_topic}, sort_keys=False, allow_unicode=True, default_flow_style=False)
-    indented = "\n".join(("  " + line if line.strip() else line) for line in block.splitlines())
+    topic_defaults = None
+    if creating:
+        topic_defaults = {"practice_area": practice_area, "default_count": 3}
+        if outcome_code:
+            try:
+                outcome_stage = int(outcome_stage_raw)
+            except ValueError:
+                outcome_stage = 2
+            # One code covers every tier; per-difficulty maps are only needed
+            # when the codes actually differ, which is a YAML edit.
+            topic_defaults["outcomes"] = outcome_code
+            topic_defaults["stage"] = outcome_stage
 
-    if not os.path.exists(generator.QUESTION_BANK_DATA_PATH):
-        with open(generator.QUESTION_BANK_DATA_PATH, "w", encoding="utf-8") as f:
-            f.write(_BANK_FILE_FALLBACK_HEADER)
+    try:
+        action = generator.upsert_bank_question(
+            slug, question, difficulties=[difficulty], topic_defaults=topic_defaults,
+        )
+    except (TypeError, ValueError) as exc:
+        return redirect(url_for("bank", error=str(exc)))
 
-    with open(generator.QUESTION_BANK_DATA_PATH, "a", encoding="utf-8") as f:
-        f.write("\n" + indented + "\n")
-
-    generator.reload_custom_topic_bank()
     question_bank.register_custom_topics()
-
-    return redirect(url_for("bank", added=slug))
+    return redirect(url_for("bank", added=slug, action=action))
 
 
 if __name__ == "__main__":
